@@ -153,7 +153,7 @@ jobs:
           ccache --zero-stats
 
       - name: Cache compiler outputs
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cache/ccache
           key: memvanta-llama-ccache-${{ runner.os }}-${{ env.LLAMA_CPP_REF }}
