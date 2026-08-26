@@ -1,0 +1,85 @@
+name: Issue 12 Prefetch Matrix
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'benchmarks/issue12_prefetch_matrix.sh'
+      - '.github/workflows/issue12-prefetch-matrix.yml'
+      - 'src/**'
+      - 'include/**'
+      - 'CMakeLists.txt'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  matrix-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake ninja-build time python3
+
+      - name: Configure and build
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build build -j "$(nproc)"
+          ctest --test-dir build --output-on-failure
+
+      - name: Create deterministic benchmark input
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('issue12-ci-input.bin')
+          block = bytes((i * 17 + 11) & 0xff for i in range(1024 * 1024))
+          with p.open('wb') as f:
+              for _ in range(128):
+                  f.write(block)
+          print(p.stat().st_size)
+          PY
+
+      - name: Run distinct prefetch matrix smoke
+        env:
+          REPEATS: '3'
+          PASSES: '2'
+          CHUNK: '8M'
+          CACHE: '32M'
+        run: |
+          bash benchmarks/issue12_prefetch_matrix.sh issue12-ci-input.bin benchmark-evidence/issue12
+          cat benchmark-evidence/issue12/summary.csv
+
+      - name: Validate matrix output
+        run: |
+          python3 - <<'PY'
+          import csv
+          from pathlib import Path
+          p = Path('benchmark-evidence/issue12/summary.csv')
+          rows = list(csv.DictReader(p.open()))
+          expected = {
+              'zero_copy_baseline',
+              'zero_copy_fixed_prefetch',
+              'bounded_fixed_prefetch',
+              'bounded_adaptive_prefetch',
+          }
+          assert {r['case'] for r in rows} == expected
+          assert all(r['checksum_stable'] == 'true' for r in rows)
+          assert all(r['checksum_matches_baseline'] == 'true' for r in rows)
+          assert all(float(r['median_gib_s']) > 0 for r in rows)
+          assert all(float(r['peak_rss_mib']) > 0 for r in rows)
+          PY
+
+      - name: Upload Issue 12 matrix evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: issue12-prefetch-matrix-evidence
+          path: benchmark-evidence/issue12/**
+          if-no-files-found: error
+          retention-days: 30
