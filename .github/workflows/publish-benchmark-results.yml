@@ -23,28 +23,55 @@ permissions:
 
 jobs:
   publish:
-    if: >-
-      github.event.workflow_run.head_branch == 'main' &&
-      (github.event.workflow_run.conclusion == 'success' ||
-       github.event.workflow_run.name == 'One Billion Model A/B' ||
-       github.event.workflow_run.name == 'Three Billion Model A/B' ||
-       github.event.workflow_run.name == 'Seven Billion Feasibility' ||
-       github.event.workflow_run.name == 'Seven Billion Model A/B' ||
-       github.event.workflow_run.name == 'RAM Constrained 7B' ||
-       github.event.workflow_run.name == 'Seven Billion Throughput Profile' ||
-       github.event.workflow_run.name == 'Seven Billion FFN Tuning' ||
-       github.event.workflow_run.name == 'Seven Billion FFN Kernel A/B')
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
     steps:
+      - name: Decide whether evidence should be published
+        id: gate
+        env:
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          WORKFLOW_NAME: ${{ github.event.workflow_run.name }}
+        run: |
+          set -euo pipefail
+          publish=false
+
+          if [ "$HEAD_BRANCH" = "main" ]; then
+            if [ "$CONCLUSION" = "success" ]; then
+              publish=true
+            else
+              case "$WORKFLOW_NAME" in
+                "One Billion Model A/B"|\
+                "Three Billion Model A/B"|\
+                "Seven Billion Feasibility"|\
+                "Seven Billion Model A/B"|\
+                "RAM Constrained 7B"|\
+                "Seven Billion Throughput Profile"|\
+                "Seven Billion FFN Tuning"|\
+                "Seven Billion FFN Kernel A/B")
+                  publish=true
+                  ;;
+              esac
+            fi
+          fi
+
+          echo "publish=$publish" >> "$GITHUB_OUTPUT"
+          echo "workflow=$WORKFLOW_NAME branch=$HEAD_BRANCH conclusion=$CONCLUSION publish=$publish"
+
+      - name: Skip ineligible publication cleanly
+        if: steps.gate.outputs.publish != 'true'
+        run: echo "No benchmark evidence publication is required for this workflow completion."
+
       - name: Checkout main
+        if: steps.gate.outputs.publish == 'true'
         uses: actions/checkout@v4
         with:
           ref: main
           fetch-depth: 0
 
       - name: Download benchmark artifact
+        if: steps.gate.outputs.publish == 'true'
         uses: actions/download-artifact@v4
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -52,6 +79,7 @@ jobs:
           path: downloaded-evidence
 
       - name: Preserve evidence under results
+        if: steps.gate.outputs.publish == 'true'
         env:
           WORKFLOW_NAME: ${{ github.event.workflow_run.name }}
           RUN_ID: ${{ github.event.workflow_run.id }}
@@ -155,6 +183,7 @@ jobs:
           find "$DEST" -maxdepth 2 -type f -print | sort
 
       - name: Commit published evidence
+        if: steps.gate.outputs.publish == 'true'
         env:
           WORKFLOW_NAME: ${{ github.event.workflow_run.name }}
           RUN_ID: ${{ github.event.workflow_run.id }}
