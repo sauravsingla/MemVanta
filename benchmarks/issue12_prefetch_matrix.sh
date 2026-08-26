@@ -38,27 +38,36 @@ run_case() {
   done
 }
 
-# Same input, chunk/cache ceiling, passes, binary, and host for all cases.
-run_case baseline --prefetch 0
-run_case fixed_prefetch --prefetch 2
-run_case bounded_prefetch --prefetch 2
-run_case adaptive --prefetch 2 --adaptive-prefetch --prefetch-min 1 --prefetch-max 4 --prefetch-window 8
+# Distinct controlled cases. The same input, binary, chunk size, pass count and host
+# are used throughout. Copy-cache cases share the same explicit CACHE ceiling.
+run_case zero_copy_baseline --zero-copy --prefetch 0
+run_case zero_copy_fixed_prefetch --zero-copy --prefetch 2
+run_case bounded_fixed_prefetch --prefetch 2
+run_case bounded_adaptive_prefetch --prefetch 2 --adaptive-prefetch --prefetch-min 1 --prefetch-max 4 --prefetch-window 8
 
 python3 - "$OUT" <<'PY'
 import pathlib, re, statistics, sys
 out = pathlib.Path(sys.argv[1])
-cases = ["baseline", "fixed_prefetch", "bounded_prefetch", "adaptive"]
+cases = [
+    "zero_copy_baseline",
+    "zero_copy_fixed_prefetch",
+    "bounded_fixed_prefetch",
+    "bounded_adaptive_prefetch",
+]
 rows = []
 for case in cases:
     text = (out / f"{case}.txt").read_text()
     throughput = [float(x) for x in re.findall(r"Effective stream: ([0-9.eE+-]+) GiB/s", text)]
     rss = [float(x) for x in re.findall(r"Peak RSS: ([0-9.eE+-]+) MiB", text)]
     checksums = re.findall(r"Checksum: ([0-9]+)", text)
-    rows.append((case, statistics.median(throughput), max(rss), len(set(checksums)) == 1, checksums[0] if checksums else ""))
+    if not throughput or not rss or not checksums:
+        raise SystemExit(f"missing metrics for {case}")
+    rows.append((case, statistics.median(throughput), max(rss), len(set(checksums)) == 1, checksums[0]))
 base = rows[0][1]
+reference_checksum = rows[0][4]
 with (out / "summary.csv").open("w") as f:
-    f.write("case,median_gib_s,speedup_vs_baseline,peak_rss_mib,checksum_stable,checksum\n")
+    f.write("case,median_gib_s,speedup_vs_zero_copy_baseline,peak_rss_mib,checksum_stable,checksum_matches_baseline,checksum\n")
     for case, tp, rss, stable, checksum in rows:
-        f.write(f"{case},{tp:.6f},{tp/base:.4f},{rss:.3f},{str(stable).lower()},{checksum}\n")
+        f.write(f"{case},{tp:.6f},{tp/base:.4f},{rss:.3f},{str(stable).lower()},{str(checksum == reference_checksum).lower()},{checksum}\n")
 print((out / "summary.csv").read_text())
 PY
