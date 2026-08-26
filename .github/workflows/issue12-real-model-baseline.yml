@@ -1,0 +1,85 @@
+name: Issue 12 Real Model Baseline
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'benchmarks/issue12_real_model_baseline.sh'
+      - '.github/workflows/issue12-real-model-baseline.yml'
+      - 'benchmarks/real_model_bench.cpp'
+      - 'src/**'
+      - 'include/**'
+      - 'CMakeLists.txt'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  real-model-baseline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      MODEL: stories15M-q4_0.gguf
+      MODEL_URL: https://huggingface.co/ggml-org/models-moved/resolve/main/tinyllamas/stories15M-q4_0.gguf?download=true
+      MODEL_SHA256: 66967fbece6dbe97886593fdbb73589584927e29119ec31f08090732d1861739
+      OMP_DYNAMIC: 'FALSE'
+      OMP_PROC_BIND: close
+      OMP_PLACES: cores
+      MALLOC_ARENA_MAX: 2
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake ninja-build curl time python3
+
+      - name: Configure and build
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build build -j "$(nproc)"
+          ctest --test-dir build --output-on-failure
+
+      - name: Download and verify TinyStories model
+        run: |
+          curl -L --fail --retry 3 --retry-delay 2 "$MODEL_URL" -o "$MODEL"
+          echo "$MODEL_SHA256  $MODEL" | sha256sum -c -
+
+      - name: Run real-model CPU baseline
+        env:
+          REPS: '3'
+          WARMUP: '1'
+          CTX: '128'
+          PROMPT: '32'
+          GEN: '8'
+          BATCH: '16'
+          KV: 'f16'
+        run: |
+          bash benchmarks/issue12_real_model_baseline.sh "$MODEL" benchmark-evidence/issue12-real-model
+          cat benchmark-evidence/issue12-real-model/summary.csv
+
+      - name: Validate baseline evidence
+        run: |
+          python3 - <<'PY'
+          import csv
+          from pathlib import Path
+          rows=list(csv.DictReader(Path('benchmark-evidence/issue12-real-model/summary.csv').open()))
+          assert [int(r['threads']) for r in rows] == [1,4]
+          for r in rows:
+              assert float(r['pp_tps_median']) > 0
+              assert float(r['tg_tps_median']) > 0
+              assert float(r['ttft_ms_median']) > 0
+              assert float(r['output_tps_median']) > 0
+              assert float(r['peak_rss_mib']) > 0
+          PY
+
+      - name: Upload real-model baseline evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: issue12-real-model-baseline-evidence
+          path: benchmark-evidence/issue12-real-model/**
+          if-no-files-found: error
+          retention-days: 30
