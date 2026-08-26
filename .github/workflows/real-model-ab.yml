@@ -122,7 +122,7 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential cmake ninja-build curl git time ccache
+          sudo apt-get install -y build-essential cmake ninja-build curl git time
 
       - name: Record benchmark provenance
         run: |
@@ -147,23 +147,12 @@ jobs:
           } > "$OUT/benchmark-provenance.txt"
           cat "$OUT/benchmark-provenance.txt"
 
-      - name: Configure compiler cache
-        run: |
-          echo "CCACHE_DIR=$HOME/.cache/ccache" >> "$GITHUB_ENV"
-          ccache --zero-stats
-
-      - name: Cache compiler outputs
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ccache
-          key: memvanta-llama-ccache-${{ runner.os }}-${{ env.LLAMA_CPP_REF }}
-          restore-keys: |
-            memvanta-llama-ccache-${{ runner.os }}-
-
       - name: Build MemVanta
         run: |
-          cmake -S . -B build-v072 -G Ninja -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+          # Do not reuse compiler objects across hosted runners when the project
+          # builds with -march=native. A cached object compiled on a different
+          # CPU can execute unsupported instructions and fail with SIGILL.
+          cmake -S . -B build-v072 -G Ninja -DCMAKE_BUILD_TYPE=Release
           cmake --build build-v072 -j "$(nproc)"
           ctest --test-dir build-v072 --output-on-failure
 
@@ -182,13 +171,10 @@ jobs:
           echo "llama_cpp_commit=$(git -C llama.cpp rev-parse HEAD)" | tee llama_cpp_commit.txt
           cmake -S llama.cpp -B llama.cpp/build -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
-            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
             -DGGML_CUDA=OFF \
             -DGGML_METAL=OFF \
             -DLLAMA_CURL=OFF
           cmake --build llama.cpp/build --target llama-bench llama-cli -j "$(nproc)"
-          ccache --show-stats
 
       - name: Run repeated same-model A/B
         env:
