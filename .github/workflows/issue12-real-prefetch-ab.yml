@@ -1,0 +1,79 @@
+name: Issue 12 Real Prefetch A/B
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'benchmarks/issue12_real_prefetch_ab.cpp'
+      - '.github/workflows/issue12-real-prefetch-ab.yml'
+      - 'CMakeLists.txt'
+      - 'src/**'
+      - 'include/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  real-prefetch-ab:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      MODEL: stories15M-q4_0.gguf
+      MODEL_URL: https://huggingface.co/ggml-org/models-moved/resolve/main/tinyllamas/stories15M-q4_0.gguf?download=true
+      MODEL_SHA256: 66967fbece6dbe97886593fdbb73589584927e29119ec31f08090732d1861739
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake ninja-build curl python3
+      - name: Configure and build
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build build -j "$(nproc)"
+          ctest --test-dir build --output-on-failure
+      - name: Download and verify TinyStories
+        run: |
+          curl -L --fail --retry 3 --retry-delay 2 "$MODEL_URL" -o "$MODEL"
+          echo "$MODEL_SHA256  $MODEL" | sha256sum -c -
+      - name: Run A/B matrix
+        run: |
+          mkdir -p benchmark-evidence/issue12-real-prefetch
+          for mode in none fixed adaptive; do
+            ./build/memvanta_issue12_real_prefetch_ab --model "$MODEL" --mode "$mode" --threads 4 --reps 5 --ctx 128 --prompt 32 --gen 8 --depth 2 --min-depth 1 --max-depth 4 --csv "benchmark-evidence/issue12-real-prefetch/${mode}.csv" | tee "benchmark-evidence/issue12-real-prefetch/${mode}.txt"
+          done
+          python3 - <<'PY'
+          import csv,re
+          from pathlib import Path
+          out=Path('benchmark-evidence/issue12-real-prefetch')
+          rows=[]
+          for mode in ('none','fixed','adaptive'):
+              t=(out/f'{mode}.txt').read_text()
+              m=re.search(r'pp_tps_median=([0-9.eE+-]+) tg_tps_median=([0-9.eE+-]+) peak_rss_mib=([0-9.eE+-]+) final_depth=([0-9]+)',t)
+              assert m, mode
+              rows.append((mode,*m.groups()))
+          with (out/'summary.csv').open('w',newline='') as f:
+              w=csv.writer(f);w.writerow(['mode','pp_tps_median','tg_tps_median','peak_rss_mib','final_depth']);w.writerows(rows)
+          print((out/'summary.csv').read_text())
+          PY
+      - name: Validate evidence
+        run: |
+          python3 - <<'PY'
+          import csv
+          from pathlib import Path
+          rows=list(csv.DictReader(Path('benchmark-evidence/issue12-real-prefetch/summary.csv').open()))
+          assert [r['mode'] for r in rows]==['none','fixed','adaptive']
+          for r in rows:
+              assert float(r['pp_tps_median'])>0
+              assert float(r['tg_tps_median'])>0
+              assert float(r['peak_rss_mib'])>0
+          PY
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: issue12-real-prefetch-ab-evidence
+          path: benchmark-evidence/issue12-real-prefetch/**
+          if-no-files-found: error
+          retention-days: 30
