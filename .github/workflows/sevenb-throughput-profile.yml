@@ -1,9 +1,16 @@
-# Explicit retrigger after tested kernel commits created by GitHub Actions.
-# Revalidate restored baseline after reverting the regressed Q4 FFN batch8 fusion.
+# Revalidate the current 7B baseline and identify the dominant CPU inference bottleneck.
 name: Seven Billion Throughput Profile
 
 on:
   workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/sevenb-throughput-profile.yml'
+      - 'benchmarks/profile_bench.cpp'
+      - 'src/gguf_kernels.cpp'
+      - 'src/llama_model.cpp'
+      - 'include/memvanta/gguf_kernels.hpp'
+      - 'CMakeLists.txt'
   push:
     branches: [main]
     paths:
@@ -12,6 +19,7 @@ on:
       - 'src/gguf_kernels.cpp'
       - 'src/llama_model.cpp'
       - 'include/memvanta/gguf_kernels.hpp'
+      - 'CMakeLists.txt'
 
 permissions:
   contents: read
@@ -25,7 +33,7 @@ env:
   PROMPT: 128
   GEN: 16
   BATCH: 32
-  PROFILE_SCHEMA: 1
+  PROFILE_SCHEMA: 2
   OMP_NUM_THREADS: 4
   OMP_DYNAMIC: 'FALSE'
   OMP_PROC_BIND: close
@@ -45,14 +53,14 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential cmake ninja-build curl time ccache
+          sudo apt-get install -y build-essential cmake ninja-build curl time python3
 
       - name: Prepare profile evidence directory
         run: mkdir -p sevenb-throughput-profile
 
-      - name: Build MemVanta profile target
+      - name: Build and test MemVanta profile target
         run: |
-          cmake -S . -B build-profile -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+          cmake -S . -B build-profile -G Ninja -DCMAKE_BUILD_TYPE=Release
           cmake --build build-profile --target memvanta_profile memvanta_tests memvanta_tokenizer_tests -j "$(nproc)"
           ctest --test-dir build-profile --output-on-failure
 
@@ -81,36 +89,108 @@ jobs:
       - name: Profile trained 7B execution
         run: |
           set -euo pipefail
-          /usr/bin/time -v ./build-profile/memvanta_profile \
-            --model "$MODEL" --threads "$THREADS" --ctx "$CTX" \
-            --prompt "$PROMPT" --gen "$GEN" --batch "$BATCH" \
-            --csv sevenb-throughput-profile/layer-profile.csv \
+          /usr/bin/time -v timeout --signal=TERM --kill-after=15s 5400 \
+            ./build-profile/memvanta_profile \
+              --model "$MODEL" --threads "$THREADS" --ctx "$CTX" \
+              --prompt "$PROMPT" --gen "$GEN" --batch "$BATCH" \
+              --csv sevenb-throughput-profile/layer-profile.csv \
             > sevenb-throughput-profile/profile.txt \
             2> sevenb-throughput-profile/time.txt
           cat sevenb-throughput-profile/profile.txt
 
-      - name: Summarize hotspots
+      - name: Summarize bottleneck evidence
         run: |
           python3 - <<'PY'
-          import pathlib,re,json
+          import csv,json,pathlib,re
           o=pathlib.Path('sevenb-throughput-profile')
           text=(o/'profile.txt').read_text()
-          keys=['prefill_ms','decode_total_ms','sampling_ms','qkv_projection_ms','attention_output_projection_ms','ffn_gemm_ms','output_head_ms','non_gemm_core_ms']
-          vals={}
-          for k in keys:
-              m=re.search(rf'\b{k}=([0-9.]+)',text)
-              vals[k]=float(m.group(1)) if m else None
-          components={k:v for k,v in vals.items() if k in ['qkv_projection_ms','attention_output_projection_ms','ffn_gemm_ms','output_head_ms','non_gemm_core_ms'] and v is not None}
-          total=sum(components.values()) or 1.0
-          ranked=sorted(components.items(),key=lambda x:x[1],reverse=True)
-          summary={'benchmark':'OpenLLaMA 7B v2 trained-model throughput hotspot profile','values_ms':vals,'ranked_components':[{'component':k,'ms':v,'pct_profiled':100*v/total} for k,v in ranked]}
+          timing=(o/'time.txt').read_text(errors='replace')
+
+          def value(name):
+              m=re.search(rf'\b{re.escape(name)}=([0-9.]+)',text)
+              if not m: raise SystemExit(f'missing profile metric: {name}')
+              return float(m.group(1))
+
+          prefill=value('prefill_ms')
+          decode=value('decode_total_ms')
+          sampling=value('sampling_ms')
+          qkv=value('qkv_projection_ms')
+          oproj=value('attention_output_projection_ms')
+          ffn=value('ffn_gemm_ms')
+          output=value('output_head_ms')
+          residual=value('non_gemm_core_ms')
+          projection=qkv+oproj+ffn+output
+          profiled_total=prefill+decode
+
+          rss=re.search(r'Maximum resident set size \(kbytes\):\s*(\d+)',timing)
+          major=re.search(r'Major \(requiring I/O\) page faults:\s*(\d+)',timing)
+          minor=re.search(r'Minor \(reclaiming a frame\) page faults:\s*(\d+)',timing)
+          cpu=re.search(r'Percent of CPU this job got:\s*([^\n]+)',timing)
+          elapsed=re.search(r'Elapsed \(wall clock\) time .*?:\s*([^\n]+)',timing)
+
+          rows=list(csv.DictReader((o/'layer-profile.csv').open()))
+          by_kind={}
+          by_layer={}
+          for r in rows:
+              ms=float(r['ms'])
+              by_kind[r['kind']]=by_kind.get(r['kind'],0.0)+ms
+              layer=int(r['layer'])
+              by_layer[layer]=by_layer.get(layer,0.0)+ms
+
+          ranked_kind=sorted(by_kind.items(),key=lambda x:x[1],reverse=True)
+          ranked_layer=sorted(by_layer.items(),key=lambda x:x[1],reverse=True)
+          components={
+              'ffn_gemm_ms':ffn,
+              'qkv_projection_ms':qkv,
+              'attention_output_projection_ms':oproj,
+              'output_head_ms':output,
+              'non_gemm_core_ms':residual,
+          }
+          ranked_components=sorted(components.items(),key=lambda x:x[1],reverse=True)
+          summary={
+              'benchmark':'OpenLLaMA 7B v2 trained-model throughput hotspot profile',
+              'prefill_ms':prefill,
+              'decode_total_ms':decode,
+              'sampling_ms':sampling,
+              'projection_kernel_ms':projection,
+              'projection_share_of_profiled_total_pct':100*projection/profiled_total if profiled_total else 0,
+              'ffn_gemm_ms':ffn,
+              'ffn_share_of_projection_pct':100*ffn/projection if projection else 0,
+              'non_gemm_core_ms':residual,
+              'peak_rss_kib':int(rss.group(1)) if rss else None,
+              'major_page_faults':int(major.group(1)) if major else None,
+              'minor_page_faults':int(minor.group(1)) if minor else None,
+              'cpu_percent':cpu.group(1).strip() if cpu else None,
+              'wall_clock':elapsed.group(1).strip() if elapsed else None,
+              'ranked_components':[{'component':k,'ms':v} for k,v in ranked_components],
+              'ranked_kernel_kinds':[{'kind':k,'ms':v} for k,v in ranked_kind],
+              'slowest_layers':[{'layer':k,'projection_ms':v} for k,v in ranked_layer[:8]],
+          }
           (o/'summary.json').write_text(json.dumps(summary,indent=2)+'\n')
-          lines=['# OpenLLaMA 7B v2 throughput profile','', 'Exact verified Q4_0 GGUF, CPU-only, 4 threads, pp128/tg16, batch 32, F16 KV.','']
-          for x in summary['ranked_components']:
-              lines.append(f"- {x['component']}: {x['ms']:.2f} ms ({x['pct_profiled']:.1f}% of profiled component time)")
-          lines += ['', 'This profile is for hotspot selection, not a throughput comparison claim.']
+          dominant=ranked_components[0]
+          kind=ranked_kind[0] if ranked_kind else ('none',0.0)
+          lines=[
+              '# OpenLLaMA 7B v2 throughput profile','',
+              'Exact verified Q4_0 GGUF, CPU-only, 4 threads, pp128/tg16, batch 32, F16 KV.','',
+              f'- Prefill: {prefill:.2f} ms',
+              f'- Decode total: {decode:.2f} ms',
+              f'- Projection kernels: {projection:.2f} ms ({summary["projection_share_of_profiled_total_pct"]:.1f}% of profiled model time)',
+              f'- FFN GEMM: {ffn:.2f} ms ({summary["ffn_share_of_projection_pct"]:.1f}% of projection-kernel time)',
+              f'- Non-GEMM core residual: {residual:.2f} ms',
+              f'- Dominant component: {dominant[0]} ({dominant[1]:.2f} ms)',
+              f'- Dominant profiled kernel kind: {kind[0]} ({kind[1]:.2f} ms)',
+              f'- Peak RSS: {summary["peak_rss_kib"]} KiB',
+              f'- Page faults: major={summary["major_page_faults"]}, minor={summary["minor_page_faults"]}',
+              f'- Process CPU: {summary["cpu_percent"]}',
+              '',
+              'This profile selects the next optimization target; it is not a universal throughput claim.'
+          ]
           (o/'SUMMARY.md').write_text('\n'.join(lines)+'\n')
           print((o/'SUMMARY.md').read_text())
+          if prefill <= 0 or decode <= 0 or projection <= 0:
+              raise SystemExit('invalid timing evidence')
+          if summary['peak_rss_kib'] is None:
+              raise SystemExit('missing peak RSS evidence')
           PY
 
       - name: Upload profile evidence
