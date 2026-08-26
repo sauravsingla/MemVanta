@@ -8,10 +8,12 @@
 #include <unordered_set>
 namespace memvanta {
 Runtime::Runtime(const TensorStore&s,RunConfig c):store_(s),cfg_(c),cache_(c.cache_bytes),prefetcher_(s,cache_){
-  if(cfg_.adaptive_min_depth==0) cfg_.adaptive_min_depth=1;
-  if(cfg_.adaptive_max_depth<cfg_.adaptive_min_depth) cfg_.adaptive_max_depth=cfg_.adaptive_min_depth;
-  if(cfg_.adaptive_window==0) cfg_.adaptive_window=1;
-  cfg_.prefetch_depth=std::clamp(cfg_.prefetch_depth,cfg_.adaptive_min_depth,cfg_.adaptive_max_depth);
+  if(cfg_.adaptive_prefetch){
+    if(cfg_.adaptive_min_depth==0) cfg_.adaptive_min_depth=1;
+    if(cfg_.adaptive_max_depth<cfg_.adaptive_min_depth) cfg_.adaptive_max_depth=cfg_.adaptive_min_depth;
+    if(cfg_.adaptive_window==0) cfg_.adaptive_window=1;
+    cfg_.prefetch_depth=std::clamp(cfg_.prefetch_depth,cfg_.adaptive_min_depth,cfg_.adaptive_max_depth);
+  }
 }
 std::uint64_t Runtime::rss_kb(){ std::ifstream f("/proc/self/status"); std::string k; while(f>>k){ if(k=="VmHWM:"){ std::uint64_t v; std::string u; f>>v>>u; return v;} std::string rest; std::getline(f,rest);} return 0; }
 RunStats Runtime::run_stream(){
