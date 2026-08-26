@@ -14,6 +14,8 @@ WARMUP="${WARMUP:-1}"
 CTX="${CTX:-256}"
 PROMPT="${PROMPT:-64}"
 GEN="${GEN:-16}"
+CLIENT_PROMPT="${CLIENT_PROMPT:-32}"
+CLIENT_OUT="${CLIENT_OUT:-8}"
 BATCH="${BATCH:-16}"
 KV="${KV:-f16}"
 
@@ -21,7 +23,7 @@ mkdir -p "$OUT"
 {
   echo "commit=$(git rev-parse HEAD 2>/dev/null || true)"
   echo "model=$MODEL"
-  echo "reps=$REPS warmup=$WARMUP ctx=$CTX prompt=$PROMPT gen=$GEN batch=$BATCH kv=$KV"
+  echo "reps=$REPS warmup=$WARMUP ctx=$CTX prompt=$PROMPT gen=$GEN client_prompt=$CLIENT_PROMPT client_out=$CLIENT_OUT batch=$BATCH kv=$KV"
   uname -a
   lscpu || true
   free -h || true
@@ -33,8 +35,10 @@ run_case() {
   local log="$OUT/t${threads}.txt"
   /usr/bin/time -v "$BIN" \
     --model "$MODEL" --threads "$threads" --reps "$REPS" --warmup "$WARMUP" \
-    --ctx "$CTX" --prompt "$PROMPT" --gen "$GEN" --batch "$BATCH" --kv "$KV" \
-    --csv "$csv" > "$log" 2> "$OUT/t${threads}.time.txt"
+    --ctx "$CTX" --prompt "$PROMPT" --gen "$GEN" \
+    --client-prompt "$CLIENT_PROMPT" --client-out "$CLIENT_OUT" \
+    --batch "$BATCH" --kv "$KV" --csv "$csv" \
+    > "$log" 2> "$OUT/t${threads}.time.txt"
 }
 
 run_case 1
