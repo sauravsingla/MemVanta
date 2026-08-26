@@ -47,6 +47,8 @@ add_executable(memvanta_real src/real_main.cpp)
 target_link_libraries(memvanta_real PRIVATE memvanta_core)
 add_executable(memvanta_real_bench benchmarks/real_model_bench.cpp)
 target_link_libraries(memvanta_real_bench PRIVATE memvanta_core)
+add_executable(memvanta_issue12_real_prefetch_ab benchmarks/issue12_real_prefetch_ab.cpp)
+target_link_libraries(memvanta_issue12_real_prefetch_ab PRIVATE memvanta_core)
 add_executable(memvanta_profile benchmarks/profile_bench.cpp)
 target_link_libraries(memvanta_profile PRIVATE memvanta_core)
 
