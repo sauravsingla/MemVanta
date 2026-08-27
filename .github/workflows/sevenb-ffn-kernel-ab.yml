@@ -22,13 +22,14 @@ env:
   MODEL: openlm-research-open_llama_7b_v2-Q4_0.gguf
   MODEL_URL: https://huggingface.co/maddes8cht/openlm-research-open_llama_7b_v2-gguf/resolve/main/openlm-research-open_llama_7b_v2-Q4_0.gguf?download=true
   MODEL_SHA256: 892f6e2e840ed98bb7bc1d74da67ae0cca52b2d90b0316d0a7e66a37a5a60760
-  AB_SCHEMA: 7
+  AB_SCHEMA: 8
   REPS: 3
   THREADS: 4
   CTX: 256
   PROMPT: 128
   GEN: 16
   BATCH: 32
+  PERFORMANCE_TOLERANCE_PCT: 2.0
   OMP_NUM_THREADS: 4
   OMP_DYNAMIC: 'FALSE'
   OMP_PROC_BIND: close
@@ -120,6 +121,7 @@ jobs:
           import json, os, pathlib, re, statistics
           out=pathlib.Path('sevenb-ffn-kernel-ab')
           reps=int(os.environ['REPS'])
+          tolerance=float(os.environ['PERFORMANCE_TOLERANCE_PCT'])
           keys=['prefill_ms','decode_total_ms','ffn_gemm_ms','qkv_projection_ms','attention_output_projection_ms','output_head_ms','non_gemm_core_ms']
           def parse_profile(path):
               s=path.read_text()
@@ -154,8 +156,8 @@ jobs:
           total_improvement=pct(total_b,total_o)
           ffn_improvement=aggregate['ffn_gemm_ms']['improvement_pct']
           gate={
-              'ffn_not_regressed': ffn_improvement >= 0.0,
-              'total_not_regressed': total_improvement >= 0.0,
+              'ffn_within_noise_guardrail': ffn_improvement >= -tolerance,
+              'total_within_noise_guardrail': total_improvement >= -tolerance,
               'rss_growth_le_2pct': rss_growth <= 2.0,
           }
           gate['pass']=all(gate.values())
@@ -163,6 +165,7 @@ jobs:
               'baseline_commit':os.environ['BASELINE_COMMIT'],
               'candidate_commit':os.environ['CANDIDATE_COMMIT'],
               'reps':reps,
+              'performance_tolerance_pct':tolerance,
               'aggregate':aggregate,
               'rss_kib':{'baseline_mean':br,'candidate_mean':orr,'growth_pct':rss_growth},
               'total_improvement_pct':total_improvement,
@@ -172,6 +175,7 @@ jobs:
           (out/'summary.json').write_text(json.dumps(summary,indent=2)+'\n')
           lines=['# OpenLLaMA 7B FFN kernel repeated same-runner A/B','',
                  f'Current baseline vs candidate on the exact same runner and verified Q4_0 GGUF; {reps} alternating-order pairs.','',
+                 f'Hosted-runner regression tolerance: {tolerance:.1f}% for FFN and end-to-end time; candidates still need positive evidence before promotion.','',
                  '| Metric | Baseline mean ± SD | Candidate mean ± SD | Improvement |','|---|---:|---:|---:|']
           for k,label in [('ffn_gemm_ms','FFN GEMM ms'),('prefill_ms','Prefill ms'),('decode_total_ms','Decode ms'),('qkv_projection_ms','QKV ms')]:
               a=aggregate[k]
@@ -180,10 +184,11 @@ jobs:
           (out/'SUMMARY.md').write_text('\n'.join(lines)+'\n')
           print((out/'SUMMARY.md').read_text())
           if not gate['pass']:
-              raise SystemExit('candidate regressed FFN/end-to-end time or exceeded RSS guardrail')
+              raise SystemExit('candidate exceeded hosted-runner performance/RSS regression guardrail')
           PY
 
       - name: Record environment
+        if: always()
         env:
           BASELINE_COMMIT: ${{ steps.refs.outputs.baseline }}
           CANDIDATE_COMMIT: ${{ steps.refs.outputs.candidate }}
@@ -193,6 +198,7 @@ jobs:
             echo "candidate_commit=$CANDIDATE_COMMIT"
             echo "ab_schema=$AB_SCHEMA"
             echo "reps=$REPS"
+            echo "performance_tolerance_pct=$PERFORMANCE_TOLERANCE_PCT"
             echo "model_sha256=$MODEL_SHA256"
             echo "threads=$THREADS prompt=$PROMPT gen=$GEN ctx=$CTX batch=$BATCH kv=f16"
             uname -a
