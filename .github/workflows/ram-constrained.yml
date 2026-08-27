@@ -188,7 +188,7 @@ jobs:
 
       - name: Upload constrained-memory evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: memvanta-ram-constrained-1b
           path: ram-constrained/**
