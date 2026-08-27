@@ -2,17 +2,27 @@ name: Seven Billion FFN Kernel A/B
 
 on:
   workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/sevenb-ffn-kernel-ab.yml'
+      - 'src/gguf_kernels.cpp'
+      - 'include/memvanta/gguf_kernels.hpp'
+      - 'src/llama_model.cpp'
+      - 'benchmarks/profile_bench.cpp'
   push:
     branches: [main]
     paths:
       - '.github/workflows/sevenb-ffn-kernel-ab.yml'
+      - 'src/gguf_kernels.cpp'
+      - 'include/memvanta/gguf_kernels.hpp'
+      - 'src/llama_model.cpp'
+      - 'benchmarks/profile_bench.cpp'
 
 env:
   MODEL: openlm-research-open_llama_7b_v2-Q4_0.gguf
   MODEL_URL: https://huggingface.co/maddes8cht/openlm-research-open_llama_7b_v2-gguf/resolve/main/openlm-research-open_llama_7b_v2-Q4_0.gguf?download=true
   MODEL_SHA256: 892f6e2e840ed98bb7bc1d74da67ae0cca52b2d90b0316d0a7e66a37a5a60760
-  BASELINE_COMMIT: ce4413db7eba71cc4349acfe18daa7a62d51f36b
-  AB_SCHEMA: 6
+  AB_SCHEMA: 7
   REPS: 3
   THREADS: 4
   CTX: 256
@@ -30,31 +40,44 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 180
     steps:
-      - name: Checkout optimized main
+      - name: Resolve candidate and baseline refs
+        id: refs
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "candidate=${{ github.event.pull_request.head.sha }}" >> "$GITHUB_OUTPUT"
+            echo "baseline=${{ github.event.pull_request.base.sha }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "candidate=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+            echo "baseline=${{ github.event.before }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout candidate
         uses: actions/checkout@v4
         with:
-          ref: main
-          fetch-depth: 0
+          ref: ${{ steps.refs.outputs.candidate }}
+          fetch-depth: 1
           path: optimized
 
-      - name: Checkout baseline commit
+      - name: Checkout current baseline
         uses: actions/checkout@v4
         with:
-          ref: ${{ env.BASELINE_COMMIT }}
+          ref: ${{ steps.refs.outputs.baseline }}
           fetch-depth: 1
           path: baseline
 
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential cmake ninja-build curl time ccache
+          sudo apt-get install -y build-essential cmake ninja-build curl time
 
       - name: Build both variants
         run: |
-          cmake -S baseline -B baseline/build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+          cmake -S baseline -B baseline/build -G Ninja -DCMAKE_BUILD_TYPE=Release
           cmake --build baseline/build --target memvanta_profile memvanta_tests memvanta_tokenizer_tests -j "$(nproc)"
           ctest --test-dir baseline/build --output-on-failure
-          cmake -S optimized -B optimized/build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+          cmake -S optimized -B optimized/build -G Ninja -DCMAKE_BUILD_TYPE=Release
           cmake --build optimized/build --target memvanta_profile memvanta_tests memvanta_tokenizer_tests -j "$(nproc)"
           ctest --test-dir optimized/build --output-on-failure
 
@@ -71,11 +94,12 @@ jobs:
           run_one() {
             variant="$1"
             rep="$2"
-            ./$variant/build/memvanta_profile \
+            /usr/bin/time -v ./$variant/build/memvanta_profile \
               --model "$MODEL" --threads "$THREADS" --ctx "$CTX" \
               --prompt "$PROMPT" --gen "$GEN" --batch "$BATCH" \
               --csv "sevenb-ffn-kernel-ab/${variant}-${rep}.csv" \
-              > "sevenb-ffn-kernel-ab/${variant}-${rep}.txt"
+              > "sevenb-ffn-kernel-ab/${variant}-${rep}.txt" \
+              2> "sevenb-ffn-kernel-ab/${variant}-${rep}.time.txt"
           }
           for rep in $(seq 1 "$REPS"); do
             if [ $((rep % 2)) -eq 1 ]; then
@@ -86,58 +110,87 @@ jobs:
               run_one baseline "$rep"
             fi
           done
+
+      - name: Summarize and gate candidate
+        env:
+          BASELINE_COMMIT: ${{ steps.refs.outputs.baseline }}
+          CANDIDATE_COMMIT: ${{ steps.refs.outputs.candidate }}
+        run: |
           python3 - <<'PY'
           import json, os, pathlib, re, statistics
           out=pathlib.Path('sevenb-ffn-kernel-ab')
           reps=int(os.environ['REPS'])
           keys=['prefill_ms','decode_total_ms','ffn_gemm_ms','qkv_projection_ms','attention_output_projection_ms','output_head_ms','non_gemm_core_ms']
-          def parse(path):
+          def parse_profile(path):
               s=path.read_text()
               vals={}
               for k in keys:
                   m=re.search(rf'\b{k}=([0-9.]+)',s)
-                  vals[k]=float(m.group(1)) if m else None
+                  if not m: raise SystemExit(f'missing {k} in {path}')
+                  vals[k]=float(m.group(1))
               return vals
-          raw={'baseline':[],'optimized':[]}
+          def parse_rss(path):
+              s=path.read_text(errors='replace')
+              m=re.search(r'Maximum resident set size \(kbytes\):\s*(\d+)',s)
+              if not m: raise SystemExit(f'missing RSS in {path}')
+              return float(m.group(1))
+          raw={'baseline':[],'optimized':[]}; rss={'baseline':[],'optimized':[]}
           for rep in range(1,reps+1):
-              raw['baseline'].append(parse(out/f'baseline-{rep}.txt'))
-              raw['optimized'].append(parse(out/f'optimized-{rep}.txt'))
+              for variant in raw:
+                  raw[variant].append(parse_profile(out/f'{variant}-{rep}.txt'))
+                  rss[variant].append(parse_rss(out/f'{variant}-{rep}.time.txt'))
           def stats(variant,k):
-              xs=[r[k] for r in raw[variant] if r[k] is not None]
+              xs=[r[k] for r in raw[variant]]
               return {'mean':statistics.mean(xs),'stdev':statistics.stdev(xs) if len(xs)>1 else 0.0,'values':xs}
-          def pct(old,new): return (old-new)*100.0/old if old else None
+          def pct(old,new): return (old-new)*100.0/old if old else 0.0
           aggregate={}
           for k in keys:
               b=stats('baseline',k); o=stats('optimized',k)
               aggregate[k]={'baseline':b,'optimized':o,'improvement_pct':pct(b['mean'],o['mean'])}
-          paired=[]
-          for rep in range(reps):
-              paired.append({k:pct(raw['baseline'][rep][k],raw['optimized'][rep][k]) for k in keys})
+          br=statistics.mean(rss['baseline']); orr=statistics.mean(rss['optimized'])
+          rss_growth=(orr-br)*100.0/br if br else 0.0
+          total_b=aggregate['prefill_ms']['baseline']['mean']+aggregate['decode_total_ms']['baseline']['mean']
+          total_o=aggregate['prefill_ms']['optimized']['mean']+aggregate['decode_total_ms']['optimized']['mean']
+          total_improvement=pct(total_b,total_o)
+          ffn_improvement=aggregate['ffn_gemm_ms']['improvement_pct']
+          gate={
+              'ffn_not_regressed': ffn_improvement >= 0.0,
+              'total_not_regressed': total_improvement >= 0.0,
+              'rss_growth_le_2pct': rss_growth <= 2.0,
+          }
+          gate['pass']=all(gate.values())
           summary={
               'baseline_commit':os.environ['BASELINE_COMMIT'],
-              'optimized_commit':os.environ.get('GITHUB_SHA'),
+              'candidate_commit':os.environ['CANDIDATE_COMMIT'],
               'reps':reps,
-              'order':'alternating baseline-first / optimized-first',
               'aggregate':aggregate,
-              'paired_improvement_pct':paired,
+              'rss_kib':{'baseline_mean':br,'candidate_mean':orr,'growth_pct':rss_growth},
+              'total_improvement_pct':total_improvement,
+              'ffn_improvement_pct':ffn_improvement,
+              'gate':gate,
           }
           (out/'summary.json').write_text(json.dumps(summary,indent=2)+'\n')
           lines=['# OpenLLaMA 7B FFN kernel repeated same-runner A/B','',
-                 f'Exact same runner, exact same verified Q4_0 GGUF, CPU-only, 4 threads, pp128/tg16, batch 32, F16 KV; {reps} alternating-order pairs.','',
+                 f'Current baseline vs candidate on the exact same runner and verified Q4_0 GGUF; {reps} alternating-order pairs.','',
                  '| Metric | Baseline mean ± SD | Candidate mean ± SD | Improvement |','|---|---:|---:|---:|']
           for k,label in [('ffn_gemm_ms','FFN GEMM ms'),('prefill_ms','Prefill ms'),('decode_total_ms','Decode ms'),('qkv_projection_ms','QKV ms')]:
               a=aggregate[k]
               lines.append(f"| {label} | {a['baseline']['mean']:.2f} ± {a['baseline']['stdev']:.2f} | {a['optimized']['mean']:.2f} ± {a['optimized']['stdev']:.2f} | {a['improvement_pct']:.2f}% |")
-          lines += ['', 'Positive improvement means lower elapsed time for the candidate kernel.', '', 'Per-pair FFN improvements: ' + ', '.join(f"{p['ffn_gemm_ms']:.2f}%" for p in paired)]
+          lines += ['', f'- Total improvement: {total_improvement:.2f}%', f'- FFN improvement: {ffn_improvement:.2f}%', f'- RSS growth: {rss_growth:.2f}%', f'- Gate: **{"PASS" if gate["pass"] else "FAIL"}**']
           (out/'SUMMARY.md').write_text('\n'.join(lines)+'\n')
           print((out/'SUMMARY.md').read_text())
+          if not gate['pass']:
+              raise SystemExit('candidate regressed FFN/end-to-end time or exceeded RSS guardrail')
           PY
 
       - name: Record environment
+        env:
+          BASELINE_COMMIT: ${{ steps.refs.outputs.baseline }}
+          CANDIDATE_COMMIT: ${{ steps.refs.outputs.candidate }}
         run: |
           {
             echo "baseline_commit=$BASELINE_COMMIT"
-            echo "optimized_commit=$GITHUB_SHA"
+            echo "candidate_commit=$CANDIDATE_COMMIT"
             echo "ab_schema=$AB_SCHEMA"
             echo "reps=$REPS"
             echo "model_sha256=$MODEL_SHA256"
