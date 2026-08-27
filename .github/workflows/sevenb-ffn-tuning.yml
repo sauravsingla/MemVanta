@@ -3,10 +3,26 @@ name: Seven Billion FFN Tuning
 # Evidence from successful runs is published under results/openllama-7b-v2-ffn-tuning.
 on:
   workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/sevenb-ffn-tuning.yml'
+      - 'src/gguf_kernels.cpp'
+      - 'include/memvanta/gguf_kernels.hpp'
+      - 'src/llama_model.cpp'
+      - 'benchmarks/profile_bench.cpp'
+      - 'CMakeLists.txt'
   push:
     branches: [main]
     paths:
       - '.github/workflows/sevenb-ffn-tuning.yml'
+      - 'src/gguf_kernels.cpp'
+      - 'include/memvanta/gguf_kernels.hpp'
+      - 'src/llama_model.cpp'
+      - 'benchmarks/profile_bench.cpp'
+      - 'CMakeLists.txt'
+
+permissions:
+  contents: read
 
 env:
   MODEL: openlm-research-open_llama_7b_v2-Q4_0.gguf
@@ -26,7 +42,7 @@ jobs:
   tune-ffn:
     name: OpenLLaMA 7B FFN tuning
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 150
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -34,12 +50,12 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential cmake ninja-build curl time ccache
+          sudo apt-get install -y build-essential cmake ninja-build curl time python3
 
-      - name: Build profiler
+      - name: Build profiler and deterministic runner
         run: |
-          cmake -S . -B build-tune -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
-          cmake --build build-tune --target memvanta_profile memvanta_tests memvanta_tokenizer_tests -j "$(nproc)"
+          cmake -S . -B build-tune -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-tune --target memvanta_profile memvanta_real memvanta_tests memvanta_tokenizer_tests -j "$(nproc)"
           ctest --test-dir build-tune --output-on-failure
 
       - name: Download exact 7B GGUF
@@ -47,69 +63,116 @@ jobs:
           set -euo pipefail
           curl -L --fail --retry 3 --retry-delay 3 "$MODEL_URL" -o "$MODEL"
           echo "$MODEL_SHA256  $MODEL" | sha256sum -c -
+          mkdir -p sevenb-ffn-tuning
+          sha256sum "$MODEL" > sevenb-ffn-tuning/model.sha256
+
+      - name: Deterministic correctness guard
+        run: |
+          set -euo pipefail
+          unset MEMVANTA_FORCE_Q8_ACT || true
+          timeout --signal=TERM --kill-after=15s 900 ./build-tune/memvanta_real \
+            --model "$MODEL" --threads "$THREADS" --ctx 128 --temperature 0 --n 4 \
+            --prompt 'The capital of France is' > sevenb-ffn-tuning/fp32-correctness.txt
+          export MEMVANTA_FORCE_Q8_ACT=1
+          timeout --signal=TERM --kill-after=15s 900 ./build-tune/memvanta_real \
+            --model "$MODEL" --threads "$THREADS" --ctx 128 --temperature 0 --n 4 \
+            --prompt 'The capital of France is' > sevenb-ffn-tuning/q8act-correctness.txt
+          diff -u sevenb-ffn-tuning/fp32-correctness.txt sevenb-ffn-tuning/q8act-correctness.txt \
+            | tee sevenb-ffn-tuning/correctness.diff
 
       - name: Run FFN tuning sweep
         run: |
           set -euo pipefail
-          mkdir -p sevenb-ffn-tuning
-          echo 'mode,batch,prefill_ms,decode_ms,ffn_ms,qkv_ms,total_ms' > sevenb-ffn-tuning/results.csv
+          echo 'mode,batch,prefill_ms,decode_ms,ffn_ms,qkv_ms,total_ms,peak_rss_kib,major_faults,minor_faults,cpu_percent' > sevenb-ffn-tuning/results.csv
           for mode in fp32 q8act; do
             for batch in 16 32 64; do
               out="sevenb-ffn-tuning/${mode}-b${batch}.txt"
+              timing="sevenb-ffn-tuning/${mode}-b${batch}.time.txt"
               if [ "$mode" = q8act ]; then
                 export MEMVANTA_FORCE_Q8_ACT=1
               else
                 unset MEMVANTA_FORCE_Q8_ACT || true
               fi
-              ./build-tune/memvanta_profile \
-                --model "$MODEL" --threads "$THREADS" --ctx "$CTX" \
-                --prompt "$PROMPT" --gen "$GEN" --batch "$batch" \
-                --csv "sevenb-ffn-tuning/${mode}-b${batch}.csv" > "$out"
-              python3 - "$mode" "$batch" "$out" <<'PY'
+              /usr/bin/time -v timeout --signal=TERM --kill-after=15s 3600 \
+                ./build-tune/memvanta_profile \
+                  --model "$MODEL" --threads "$THREADS" --ctx "$CTX" \
+                  --prompt "$PROMPT" --gen "$GEN" --batch "$batch" \
+                  --csv "sevenb-ffn-tuning/${mode}-b${batch}.csv" \
+                > "$out" 2> "$timing"
+              python3 - "$mode" "$batch" "$out" "$timing" <<'PY'
           import re, sys, pathlib
-          mode, batch, path = sys.argv[1:]
+          mode, batch, path, time_path = sys.argv[1:]
           s = pathlib.Path(path).read_text()
+          t = pathlib.Path(time_path).read_text(errors='replace')
           def value(key):
               m = re.search(rf'\b{key}=([0-9.]+)', s)
-              return float(m.group(1)) if m else 0.0
+              if not m: raise SystemExit(f'missing {key} in {path}')
+              return float(m.group(1))
+          def metric(pattern, default=''):
+              m = re.search(pattern, t)
+              return m.group(1).strip() if m else default
           pre = value('prefill_ms')
           dec = value('decode_total_ms')
           ffn = value('ffn_gemm_ms')
           qkv = value('qkv_projection_ms')
+          rss = metric(r'Maximum resident set size \(kbytes\):\s*(\d+)', '0')
+          major = metric(r'Major \(requiring I/O\) page faults:\s*(\d+)', '0')
+          minor = metric(r'Minor \(reclaiming a frame\) page faults:\s*(\d+)', '0')
+          cpu = metric(r'Percent of CPU this job got:\s*([^\n]+)', '')
           with open('sevenb-ffn-tuning/results.csv', 'a') as f:
-              f.write(f'{mode},{batch},{pre:.6f},{dec:.6f},{ffn:.6f},{qkv:.6f},{pre+dec:.6f}\n')
+              f.write(f'{mode},{batch},{pre:.6f},{dec:.6f},{ffn:.6f},{qkv:.6f},{pre+dec:.6f},{rss},{major},{minor},{cpu}\n')
           PY
             done
           done
+
+      - name: Summarize and select candidate
+        run: |
           python3 <<'PY'
           import csv, pathlib
           p = pathlib.Path('sevenb-ffn-tuning/results.csv')
           rows = list(csv.DictReader(p.open()))
           rows.sort(key=lambda r: float(r['total_ms']))
           best = rows[0]
+          fp32_best = min((r for r in rows if r['mode']=='fp32'), key=lambda r: float(r['total_ms']))
+          q8_best = min((r for r in rows if r['mode']=='q8act'), key=lambda r: float(r['total_ms']))
+          def improvement(old,new): return (old-new)*100.0/old if old else 0.0
+          speed = improvement(float(fp32_best['total_ms']), float(q8_best['total_ms']))
+          ffn_speed = improvement(float(fp32_best['ffn_ms']), float(q8_best['ffn_ms']))
+          rss_delta = (float(q8_best['peak_rss_kib'])/float(fp32_best['peak_rss_kib'])-1.0)*100.0 if float(fp32_best['peak_rss_kib']) else 0.0
+          promote = speed >= 3.0 and ffn_speed > 0.0 and rss_delta <= 2.0
           lines = [
-              '# OpenLLaMA 7B FFN tuning',
-              '',
-              'Exact verified Q4_0 GGUF, CPU-only, 4 threads, pp128/tg16, F16 KV.',
-              '',
-              '| Mode | Batch | Prefill ms | Decode ms | FFN ms | QKV ms | Total ms |',
+              '# OpenLLaMA 7B FFN tuning','',
+              'Exact verified Q4_0 GGUF, CPU-only, 4 threads, pp128/tg16, F16 KV.','',
+              '| Mode | Batch | Prefill ms | Decode ms | FFN ms | Total ms | Peak RSS KiB |',
               '|---|---:|---:|---:|---:|---:|---:|',
           ]
           for r in rows:
-              lines.append(
-                  f"| {r['mode']} | {r['batch']} | {float(r['prefill_ms']):.2f} | "
-                  f"{float(r['decode_ms']):.2f} | {float(r['ffn_ms']):.2f} | "
-                  f"{float(r['qkv_ms']):.2f} | {float(r['total_ms']):.2f} |"
-              )
+              lines.append(f"| {r['mode']} | {r['batch']} | {float(r['prefill_ms']):.2f} | {float(r['decode_ms']):.2f} | {float(r['ffn_ms']):.2f} | {float(r['total_ms']):.2f} | {r['peak_rss_kib']} |")
           lines += [
               '',
-              f"Best measured configuration: **{best['mode']} activation path, batch {best['batch']}**.",
+              f"Best FP32: batch {fp32_best['batch']}; best Q8-act: batch {q8_best['batch']}.",
+              f"Q8-act end-to-end improvement vs best FP32: **{speed:.2f}%**.",
+              f"Q8-act FFN improvement vs best FP32: **{ffn_speed:.2f}%**.",
+              f"Q8-act peak-RSS delta: **{rss_delta:.2f}%**.",
+              f"Promotion gate (>=3% total, FFN faster, <=2% RSS growth, exact deterministic output): **{'PASS' if promote else 'FAIL'}**.",
               '',
-              'This is a tuning experiment, not a llama.cpp comparison claim.',
+              'A failed promotion gate is valid negative evidence; do not enable Q8 activations by default from this workflow alone.',
           ]
           pathlib.Path('sevenb-ffn-tuning/SUMMARY.md').write_text('\n'.join(lines) + '\n')
+          pathlib.Path('sevenb-ffn-tuning/promotion.txt').write_text(('PASS' if promote else 'FAIL')+'\n')
           print(pathlib.Path('sevenb-ffn-tuning/SUMMARY.md').read_text())
           PY
+
+      - name: Record environment
+        run: |
+          {
+            echo "commit=$GITHUB_SHA"
+            echo "model_sha256=$MODEL_SHA256"
+            echo "threads=$THREADS prompt=$PROMPT gen=$GEN ctx=$CTX kv=f16"
+            uname -a
+            lscpu
+            free -h
+          } > sevenb-ffn-tuning/environment.txt
 
       - name: Upload tuning evidence
         if: always()
