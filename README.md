@@ -5,32 +5,13 @@
 [![RAM Constrained 7B](https://github.com/sauravsingla/MemVanta/actions/workflows/sevenb-ram-constrained.yml/badge.svg)](https://github.com/sauravsingla/MemVanta/actions/workflows/sevenb-ram-constrained.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
-**Memory-efficient local LLM inference on CPUs for quantized GGUF models.**
+**Run quantized LLMs on CPUs with dramatically lower memory usage.**
 
-MemVanta is an experimental **C++20 CPU inference runtime** for running **local large language models (LLMs)** under tight RAM budgets. It focuses on **GGUF**, **quantized Q4/Q6/Q8 kernels**, **mmap-backed model access**, **paged KV cache**, bounded caching, and reproducible benchmarking against pinned `llama.cpp` builds.
+MemVanta is an experimental **C++20 CPU inference runtime** for **GGUF** models built around one goal: **fit larger local LLMs into smaller RAM budgets**.
 
-If your question is _“how far can a quantized LLM be pushed on a CPU when RAM is the limiting resource?”_, MemVanta is built to explore that trade-off.
+**C++20 · CPU-only · GGUF · Q4_0 · Q6_K · Q8_0 · AVX2/FMA · mmap · paged KV cache**
 
-> **Verified OpenLLaMA 7B v2 Q4_0 result:** across 5 measured CPU runs on the exact same GGUF, MemVanta used **47.50% less peak RSS** than pinned `llama.cpp` — about **3.80 GiB vs 7.24 GiB**. In a separate cgroup-v2 sweep with swap disabled, MemVanta completed at a **3584 MiB tested memory ceiling** where `llama.cpp` was OOM-killed. `llama.cpp` remains substantially faster, so this is a **memory-efficiency result, not a throughput win**.
-
-## Why MemVanta?
-
-Most local-LLM runtimes optimize first for throughput. MemVanta instead treats **memory footprint as the primary constraint** and reports throughput transparently as the cost of that choice.
-
-The project is useful for experiments involving:
-
-- **low-RAM local LLM inference** on CPUs
-- **GGUF model execution** and quantized tensor kernels
-- **Q4_0 / Q6_K / Q8_0** inference paths
-- **mmap and page-cache behavior** under memory pressure
-- **paged KV-cache design**
-- **CPU inference benchmarking** against `llama.cpp`
-- **edge AI / constrained-machine inference**
-- reproducible systems research around **memory vs throughput**
-
-MemVanta is **not yet a drop-in replacement for `llama.cpp`** and is not intended to be a polished end-user chatbot runtime.
-
-## Verified 7B result
+## Headline benchmark — 47.5% lower peak memory
 
 **OpenLLaMA 7B v2 Q4_0 · exact same GGUF · CPU only · 4 threads · pp512/tg128 · context 768 · batch 32 · F16 KV · 1 warm-up + 5 measured runs**
 
@@ -41,6 +22,8 @@ MemVanta is **not yet a drop-in replacement for `llama.cpp`** and is not intende
 | Token generation | 1.52 ± 0.02 tok/s | 7.76 ± 0.09 tok/s |
 
 **Peak resident-memory reduction: 47.50% (~3.44 GiB less).**
+
+> MemVanta optimizes for **memory efficiency**, not raw throughput. `llama.cpp` remains substantially faster in these tests.
 
 Raw evidence: [`results/openllama-7b-v2-ab/`](results/openllama-7b-v2-ab/)
 
@@ -57,32 +40,24 @@ This is an execution-under-pressure result over the tested sweep, **not an exact
 
 Raw evidence: [`results/openllama-7b-v2-ram-constrained/`](results/openllama-7b-v2-ram-constrained/)
 
-## What MemVanta implements
+## Why MemVanta?
 
-- native **GGUF** model execution
-- **Q4_0, Q6_K, Q8_0, F16 and F32** tensor paths
-- **AVX2/FMA** quantized CPU kernels
-- mmap-backed tensor access
-- bounded caching and prefetch experiments
-- paged **F32 / F16 / Q8 KV cache**
-- batched prefill and token decode paths
-- GPT-2 and Llama/SentencePiece-style tokenization
-- trained-model CPU benchmarking against pinned `llama.cpp`
-- constrained-memory and cgroup-v2 benchmark workflows
-- layer/kernel profiling for 7B throughput bottlenecks
+Most local-LLM runtimes optimize first for throughput. MemVanta asks a different question:
 
-## Current engineering focus
+> **How far can a quantized LLM be pushed on a CPU when RAM — not compute — is the main constraint?**
 
-Recent 7B profiling shows that the main speed bottleneck is **projection-kernel compute rather than paging** on the tested host:
+The project is useful for experiments involving:
 
-- projection kernels accounted for about **98% of profiled model time**
-- **FFN GEMM** accounted for about **62% of projection-kernel time**
-- `ffn_down` was the largest individual profiled kernel class
-- only **1 major page fault** occurred in that run
+- **low-RAM local LLM inference** on CPUs
+- **GGUF model execution** and quantized tensor kernels
+- **Q4_0 / Q6_K / Q8_0** inference paths
+- **mmap and page-cache behavior** under memory pressure
+- **paged KV-cache design**
+- **CPU inference benchmarking** against `llama.cpp`
+- **edge AI / constrained-machine inference**
+- reproducible systems research around **memory vs throughput**
 
-That evidence is steering current optimization work toward the **Q4 FP32/AVX FFN path**, while retaining memory usage as a hard regression guardrail.
-
-Evidence: [`results/openllama-7b-v2-throughput-profile/`](results/openllama-7b-v2-throughput-profile/)
+MemVanta is **not yet a drop-in replacement for `llama.cpp`** and is not intended to be a polished end-user chatbot runtime.
 
 ## Quick start
 
@@ -117,6 +92,33 @@ ctest --test-dir build --output-on-failure
 ```
 
 For reproducible comparisons, use the same model file, SHA-256, CPU/thread settings, context, batch size, KV type, prompt length and generation length for both runtimes.
+
+## What MemVanta implements
+
+- native **GGUF** model execution
+- **Q4_0, Q6_K, Q8_0, F16 and F32** tensor paths
+- **AVX2/FMA** quantized CPU kernels
+- mmap-backed tensor access
+- bounded caching and prefetch experiments
+- paged **F32 / F16 / Q8 KV cache**
+- batched prefill and token decode paths
+- GPT-2 and Llama/SentencePiece-style tokenization
+- trained-model CPU benchmarking against pinned `llama.cpp`
+- constrained-memory and cgroup-v2 benchmark workflows
+- layer/kernel profiling for 7B throughput bottlenecks
+
+## Current engineering focus
+
+Recent 7B profiling shows that the main speed bottleneck is **projection-kernel compute rather than paging** on the tested host:
+
+- projection kernels accounted for about **98% of profiled model time**
+- **FFN GEMM** accounted for about **62% of projection-kernel time**
+- `ffn_down` was the largest individual profiled kernel class
+- only **1 major page fault** occurred in that run
+
+That evidence is steering current optimization work toward the **Q4 FP32/AVX FFN path**, while retaining memory usage as a hard regression guardrail.
+
+Evidence: [`results/openllama-7b-v2-throughput-profile/`](results/openllama-7b-v2-throughput-profile/)
 
 ## Benchmark evidence
 
