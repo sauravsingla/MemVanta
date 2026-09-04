@@ -20,6 +20,11 @@ add_library(memvanta_core
     src/llama_model.cpp)
 target_include_directories(memvanta_core PUBLIC include)
 target_compile_options(memvanta_core PRIVATE -O3 -Wall -Wextra -Wpedantic)
+# The GGUF projection kernels are dominated by small fixed-trip inner loops.
+# Let the compiler unroll only this translation unit so the 7B FFN A/B gate
+# can validate whether reduced loop/control overhead improves the Q4 hotspot
+# without changing numerical behavior or broadening code-size impact globally.
+set_source_files_properties(src/gguf_kernels.cpp PROPERTIES COMPILE_OPTIONS "-funroll-loops")
 if(MEMVANTA_NATIVE)
   target_compile_options(memvanta_core PRIVATE -march=native)
 endif()
