@@ -5,6 +5,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 option(MEMVANTA_NATIVE "Enable -march=native" ON)
 add_library(memvanta_core
+    src/common.cpp
     src/mmap_file.cpp
     src/tensor_store.cpp
     src/lru_cache.cpp
