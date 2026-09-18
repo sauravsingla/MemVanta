@@ -1,2 +1,2 @@
-[MemVanta real GGUF] prompt tokens=12 model=\hf
- a new
+[MemVanta real GGUF] prompt tokens=6 model=\hf
+ a city
