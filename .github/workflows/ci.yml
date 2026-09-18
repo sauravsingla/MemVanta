@@ -75,3 +75,21 @@ jobs:
 
       - name: Test under sanitizers
         run: ctest --test-dir build-sanitize --output-on-failure
+
+  macos:
+    name: macOS-Clang
+    runs-on: macos-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure
+        run: cmake -S . -B build-macos -DCMAKE_BUILD_TYPE=Release -DMEMVANTA_NATIVE=OFF
+
+      - name: Build
+        run: cmake --build build-macos -j 3
+
+      - name: Test
+        run: ctest --test-dir build-macos --output-on-failure
