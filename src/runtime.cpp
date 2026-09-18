@@ -81,7 +81,9 @@ RunStats Runtime::run_stream(){
     pf.unused+=requested.size();
   }
   auto end=std::chrono::steady_clock::now(); double sec=std::chrono::duration<double>(end-start).count();
-  prefetcher_.stop(); pf.final_depth=depth;
+  prefetcher_.stop();
+  prefetcher_.rethrow_if_failed();
+  pf.final_depth=depth;
   return {sec,gib(total)/sec,checksum,cache_.stats(),rss_kb(),pf};
 }
 }
