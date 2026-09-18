@@ -1,6 +1,6 @@
 #include "memvanta/prefetcher.hpp"
 namespace memvanta {
-Prefetcher::Prefetcher(const TensorStore&s,TensorCache&c):store_(s),cache_(c),worker_(&Prefetcher::loop,this){}
+Prefetcher::Prefetcher(const TensorStore&s,TensorCache&c):store_(s),cache_(c){worker_=std::thread(&Prefetcher::loop,this);}
 Prefetcher::~Prefetcher(){ stop(); }
 void Prefetcher::rethrow_if_failed(){std::exception_ptr error;{std::lock_guard lk(mu_);error=error_;}if(error)std::rethrow_exception(error);}
 void Prefetcher::request(std::uint32_t id){
