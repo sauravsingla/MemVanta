@@ -34,6 +34,36 @@ These are **scoped engineering measurements, not universal performance claims**.
 - [7B throughput profile](results/openllama-7b-v2-throughput-profile/)
 - [3B, 1.1B and 360M evidence](results/)
 
+## 🧪 MemVanta Reproduction Challenge
+
+**Have a Linux or macOS CPU machine? Help independently test the memory result.**
+
+Start in a few minutes:
+
+```bash
+git clone https://github.com/sauravsingla/MemVanta.git
+cd MemVanta
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j
+ctest --test-dir build --output-on-failure
+```
+
+Then follow the [external reproduction guide](docs/EXTERNAL_REPRODUCTION.md) to run the same-GGUF comparison against the pinned `llama.cpp` baseline.
+
+Please share:
+
+- CPU and RAM
+- operating system and compiler
+- model / GGUF SHA
+- MemVanta peak RSS
+- `llama.cpp` peak RSS
+- prompt and generation throughput
+- MemVanta commit SHA
+
+**Confirm it. Contradict it. Find a limitation. All three are useful contributions.**
+
+[Reproduction guide](docs/EXTERNAL_REPRODUCTION.md) · [Raw 7B evidence](results/openllama-7b-v2-ab/) · [Benchmark methodology](docs/MEMORY_BENCHMARKING.md) · [Contributing](CONTRIBUTING.md)
+
 ## Why MemVanta?
 
 MemVanta is useful for experiments involving:
@@ -47,17 +77,9 @@ MemVanta is useful for experiments involving:
 
 The current real-model executor supports GGUF files with `general.architecture=llama`.
 
-## Build in 30 seconds
+## Build and benchmark
 
 Requires CMake ≥ 3.20, a C++20 compiler, and Linux/macOS.
-
-```bash
-git clone https://github.com/sauravsingla/MemVanta.git
-cd MemVanta
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build -j
-ctest --test-dir build --output-on-failure
-```
 
 Benchmark a GGUF model:
 
@@ -97,18 +119,6 @@ MemVanta currently includes:
 - batched prefill and token decode
 - Llama/SentencePiece-style and GPT-2-style tokenizer support
 - real-model benchmarking, profiling and constrained-memory workflows
-
-## Help reproduce it
-
-**Independent reproduction is the most useful contribution right now.**
-
-If you have a Linux/macOS CPU machine, try MemVanta on your hardware and report results that **confirm, narrow, or contradict** the published measurements.
-
-- [External reproduction guide](docs/EXTERNAL_REPRODUCTION.md)
-- [Memory benchmarking methodology](docs/MEMORY_BENCHMARKING.md)
-- [Benchmark checklist](docs/BENCHMARK_CHECKLIST.md)
-
-Please report the CPU, RAM, compiler, model/GGUF SHA, settings, peak RSS and throughput so results remain comparable.
 
 ## Current engineering focus
 
