@@ -10,7 +10,9 @@ The `Full Model Correctness` workflow downloads the exact pinned TinyStories Lla
 - the complete greedy output to be identical between 1-thread and 4-thread execution;
 - `memvanta_eval` to produce finite NLL/perplexity values;
 - greedy token IDs to match exactly across 1-thread and 4-thread execution; and
-- average NLL to remain within a tight relative tolerance across those thread counts.
+- average NLL to remain within a 0.1% relative tolerance across those thread counts.
+
+The 0.1% NLL guardrail is intentionally numerical rather than bitwise: the first hosted validation observed about 0.068% average-NLL drift between 1-thread and 4-thread evaluation while greedy token IDs remained exactly equal. The workflow records the observed drift in its evidence artifact and fails if it exceeds the guardrail.
 
 The golden continuation is a **MemVanta regression fixture**, not a claim that MemVanta is numerically identical to another runtime. Any intentional model-semantics change that updates this fixture should include evidence explaining why the new sequence is more correct.
 
