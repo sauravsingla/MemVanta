@@ -1,5 +1,5 @@
 | model | size | params | backend | threads | test | t/s |
 |---|---:|---:|---|---:|---|---:|
-| Openllama Source | 1887.49 MiB | 3426.47 M | MemVanta CPU | 4 | pp32 | 5.12 ± 0.00 |
-| Openllama Source | 1887.49 MiB | 3426.47 M | MemVanta CPU | 4 | tg16 | 3.58 ± 0.00 |
-load=12.06 ms peak_rss=1940.83 MiB kv_alloc=40.62 MiB batch=16 kv=f16
+| Openllama Source | 1887.49 MiB | 3426.47 M | MemVanta CPU | 4 | pp32 | 5.83 ± 0.00 |
+| Openllama Source | 1887.49 MiB | 3426.47 M | MemVanta CPU | 4 | tg16 | 3.52 ± 0.00 |
+load=12.57 ms peak_rss=1942.50 MiB kv_alloc=40.62 MiB batch=16 kv=f16

@@ -2,7 +2,7 @@
   {
     "build_commit": "6503355",
     "build_number": 1,
-    "cpu_info": "INTEL(R) XEON(R) PLATINUM 8573C",
+    "cpu_info": "AMD EPYC 7763 64-Core Processor",
     "gpu_info": "",
     "backends": "CPU",
     "model_filename": "openllama-3b-v2-q4_0.gguf",
@@ -35,18 +35,18 @@
     "n_prompt": 512,
     "n_gen": 0,
     "n_depth": 0,
-    "test_time": "2026-08-26T14:16:00Z",
-    "avg_ns": 18255373638,
-    "stddev_ns": 102349701,
-    "avg_ts": 28.047245,
-    "stddev_ts": 0.158041,
-    "samples_ns": [ 18086435603, 18237476937, 18307532800, 18297690192, 18347732659 ],
-    "samples_ts": [ 28.3085, 28.0741, 27.9666, 27.9817, 27.9054 ]
+    "test_time": "2026-09-18T08:24:03Z",
+    "avg_ns": 20975390238,
+    "stddev_ns": 27805040,
+    "avg_ts": 24.409592,
+    "stddev_ts": 0.032342,
+    "samples_ns": [ 20956594375, 21006250895, 20952158034, 20956636732, 21005311157 ],
+    "samples_ts": [ 24.4315, 24.3737, 24.4366, 24.4314, 24.3748 ]
   },
   {
     "build_commit": "6503355",
     "build_number": 1,
-    "cpu_info": "INTEL(R) XEON(R) PLATINUM 8573C",
+    "cpu_info": "AMD EPYC 7763 64-Core Processor",
     "gpu_info": "",
     "backends": "CPU",
     "model_filename": "openllama-3b-v2-q4_0.gguf",
@@ -79,12 +79,12 @@
     "n_prompt": 0,
     "n_gen": 128,
     "n_depth": 0,
-    "test_time": "2026-08-26T14:17:49Z",
-    "avg_ns": 11464733279,
-    "stddev_ns": 59528194,
-    "avg_ts": 11.164912,
-    "stddev_ts": 0.057614,
-    "samples_ns": [ 11450848297, 11429283503, 11451021995, 11423628835, 11568883767 ],
-    "samples_ts": [ 11.1782, 11.1993, 11.178, 11.2048, 11.0642 ]
+    "test_time": "2026-09-18T08:26:09Z",
+    "avg_ns": 8151758996,
+    "stddev_ns": 23999784,
+    "avg_ts": 15.702241,
+    "stddev_ts": 0.046170,
+    "samples_ns": [ 8129514373, 8148038890, 8186629457, 8163732117, 8130880147 ],
+    "samples_ts": [ 15.7451, 15.7093, 15.6353, 15.6791, 15.7425 ]
   }
 ]
