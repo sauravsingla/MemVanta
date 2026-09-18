@@ -112,6 +112,9 @@ jobs:
           b = parse(root/'eval-t4.txt')
           if a['greedy_ids'] != b['greedy_ids']:
               raise SystemExit('greedy token IDs differ between 1-thread and 4-thread inference')
+          # Parallel floating-point evaluation is not bit-identical across thread counts.
+          # The first hosted validation observed ~6.78e-4 relative avg-NLL drift while
+          # greedy IDs remained exactly equal, so keep a strict 1e-3 (0.1%) guardrail.
           scale = max(1.0, abs(a['avg_nll']), abs(b['avg_nll']))
           relative_drift = abs(a['avg_nll'] - b['avg_nll']) / scale
           tolerance = 1e-3
