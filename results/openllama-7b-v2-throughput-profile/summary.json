@@ -1,106 +1,106 @@
 {
   "benchmark": "OpenLLaMA 7B v2 trained-model throughput hotspot profile",
-  "prefill_ms": 45995.3,
-  "decode_total_ms": 11529.5,
-  "sampling_ms": 0.353402,
-  "projection_kernel_ms": 56481.950000000004,
-  "projection_share_of_profiled_total_pct": 98.18712972491863,
-  "ffn_gemm_ms": 35723.08,
-  "ffn_share_of_projection_pct": 63.246895689684926,
-  "non_gemm_core_ms": 1042.51,
-  "peak_rss_kib": 3810664,
+  "prefill_ms": 40354.6,
+  "decode_total_ms": 12727.2,
+  "sampling_ms": 0.924134,
+  "projection_kernel_ms": 51961.689999999995,
+  "projection_share_of_profiled_total_pct": 97.88984171599303,
+  "ffn_gemm_ms": 32668.88,
+  "ffn_share_of_projection_pct": 62.87108829601193,
+  "non_gemm_core_ms": 1119.21,
+  "peak_rss_kib": 3810584,
   "major_page_faults": 1,
-  "minor_page_faults": 96108,
-  "cpu_percent": "237%",
-  "wall_clock": "mm:ss or m:ss): 0:57.71",
+  "minor_page_faults": 96112,
+  "cpu_percent": "245%",
+  "wall_clock": "mm:ss or m:ss): 0:53.17",
   "ranked_components": [
     {
       "component": "ffn_gemm_ms",
-      "ms": 35723.08
+      "ms": 32668.88
     },
     {
       "component": "qkv_projection_ms",
-      "ms": 13290.88
+      "ms": 12342.46
     },
     {
       "component": "attention_output_projection_ms",
-      "ms": 4409.98
+      "ms": 4123.17
     },
     {
       "component": "output_head_ms",
-      "ms": 3058.01
+      "ms": 2827.18
     },
     {
       "component": "non_gemm_core_ms",
-      "ms": 1042.51
+      "ms": 1119.21
     }
   ],
   "ranked_kernel_kinds": [
     {
       "kind": "ffn_gate",
-      "ms": 11945.951842999999
+      "ms": 10953.274934999996
     },
     {
       "kind": "ffn_up",
-      "ms": 11922.277977000002
+      "ms": 10921.542014999999
     },
     {
       "kind": "ffn_down",
-      "ms": 11854.846011000001
-    },
-    {
-      "kind": "q_proj",
-      "ms": 4449.975963999999
-    },
-    {
-      "kind": "v_proj",
-      "ms": 4425.894358999999
-    },
-    {
-      "kind": "k_proj",
-      "ms": 4415.006814999999
+      "ms": 10794.064128000002
     },
     {
       "kind": "o_proj",
-      "ms": 4409.981223999998
+      "ms": 4123.172903
+    },
+    {
+      "kind": "q_proj",
+      "ms": 4116.435467000002
+    },
+    {
+      "kind": "k_proj",
+      "ms": 4113.172990999999
+    },
+    {
+      "kind": "v_proj",
+      "ms": 4112.848797999999
     },
     {
       "kind": "output",
-      "ms": 3058.014867
+      "ms": 2827.177666
     }
   ],
   "slowest_layers": [
     {
       "layer": -1,
-      "projection_ms": 3058.014867
+      "projection_ms": 2827.177666
     },
     {
-      "layer": 3,
-      "projection_ms": 1699.7254630000002
+      "layer": 10,
+      "projection_ms": 1576.4543090000002
     },
     {
-      "layer": 2,
-      "projection_ms": 1694.859242
+      "layer": 8,
+      "projection_ms": 1561.979615
     },
     {
-      "layer": 1,
-      "projection_ms": 1679.074079
+      "layer": 11,
+      "projection_ms": 1561.831612
     },
     {
-      "layer": 0,
-      "projection_ms": 1676.0782190000002
+      "layer": 9,
+      "projection_ms": 1556.142061
     },
     {
-      "layer": 4,
-      "projection_ms": 1674.8116429999998
+      "layer": 27,
+      "projection_ms": 1553.7227229999999
+    },
+    {
+      "layer": 31,
+      "projection_ms": 1553.3362039999997
     },
     {
       "layer": 12,
-      "projection_ms": 1674.0736459999998
-    },
-    {
-      "layer": 18,
-      "projection_ms": 1671.8341579999997
+      "projection_ms": 1551.71461
     }
   ]
 }
