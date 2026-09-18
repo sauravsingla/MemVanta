@@ -3,6 +3,7 @@
 #include <atomic>
 #include <condition_variable>
 #include <cstddef>
+#include <exception>
 #include <functional>
 #include <mutex>
 #include <thread>
@@ -24,6 +25,7 @@ private:
     std::mutex m_;
     std::condition_variable cv_,done_;
     std::function<void(std::size_t,std::size_t)> fn_;
+    std::exception_ptr error_;
     std::size_t n_{0};
     std::size_t generation_{0};
     std::size_t finished_{0};

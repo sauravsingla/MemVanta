@@ -1,7 +1,18 @@
 {
   "project": "MemVanta CPU",
+  "manifest_type": "historical_benchmark_snapshot",
+  "status": "historical",
   "version": "0.5.0",
   "date": "2026-08-20",
+  "note": "This file records the original v0.5.0 synthetic-model benchmark only. It is not the current project-wide benchmark manifest. Current trained-model same-GGUF evidence is retained under results/ and summarized in README.md.",
+  "current_evidence": [
+    "results/openllama-7b-v2-ab/",
+    "results/openllama-7b-v2-ram-constrained/",
+    "results/openllama-7b-v2-throughput-profile/",
+    "results/openllama-3b-v2-ab/",
+    "results/tinyllama-1.1b-ab/",
+    "results/smollm2-360m-ab/"
+  ],
   "host": {
     "cpu": "AMD EPYC 9V74 80-Core Processor (virtualized)",
     "cpus_available": 5,
@@ -102,7 +113,7 @@
     "mlperf_client_metric_alignment": true,
     "mlperf_certified": false,
     "direct_external_runtime_comparison_valid": false,
-    "reason": "synthetic weights and token-by-token prefill; same public GGUF checkpoint not yet executed by MemVanta"
+    "reason": "This historical v0.5.0 experiment used synthetic weights and token-by-token prefill. Later same-GGUF trained-model comparisons are published separately under results/."
   },
   "public_target": {
     "base_model": "HuggingFaceTB/SmolLM2-135M-Instruct",

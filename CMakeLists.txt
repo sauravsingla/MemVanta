@@ -4,6 +4,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 option(MEMVANTA_NATIVE "Enable -march=native" ON)
+option(MEMVANTA_BUILD_FUZZER "Build the Clang/libFuzzer GGUF parser target" OFF)
 add_library(memvanta_core
     src/common.cpp
     src/mmap_file.cpp
@@ -70,3 +71,19 @@ target_link_libraries(memvanta_tokenizer_tests PRIVATE memvanta_core)
 add_test(NAME memvanta_tokenizer_tests COMMAND memvanta_tokenizer_tests
   ${CMAKE_CURRENT_SOURCE_DIR}/tokenizer_fixtures/gpt2_smollm_tokenizer.gguf
   ${CMAKE_CURRENT_SOURCE_DIR}/tokenizer_fixtures/llama_sentencepiece_tokenizer.gguf)
+
+if(MEMVANTA_BUILD_FUZZER)
+  if(NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    message(FATAL_ERROR "MEMVANTA_BUILD_FUZZER requires Clang/libFuzzer")
+  endif()
+  add_executable(memvanta_gguf_fuzz
+    fuzz/gguf_fuzz.cpp
+    src/gguf.cpp
+    src/mmap_file.cpp)
+  target_include_directories(memvanta_gguf_fuzz PRIVATE include)
+  target_compile_options(memvanta_gguf_fuzz PRIVATE
+    -fsanitize=fuzzer,address,undefined
+    -fno-omit-frame-pointer
+    -Wall -Wextra -Wpedantic)
+  target_link_options(memvanta_gguf_fuzz PRIVATE -fsanitize=fuzzer,address,undefined)
+endif()

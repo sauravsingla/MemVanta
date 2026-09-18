@@ -9,7 +9,7 @@
 
 **Memory-efficient local LLM inference in C++20.**
 
-> **Run quantized GGUF models on CPUs when RAM capacity matters more than maximum tokens/sec.**
+> **Run quantized Llama-family GGUF models on CPUs when RAM capacity matters more than maximum tokens/sec.**
 
 MemVanta is an experimental CPU inference runtime built around one goal: **fit larger local LLMs into smaller RAM budgets** using quantized kernels, mmap-backed model access, bounded caching, and paged KV cache.
 
@@ -17,6 +17,8 @@ MemVanta is an experimental CPU inference runtime built around one goal: **fit l
 **CPU-only · GGUF · Q4_0 / Q6_K / Q8_0 · AVX2/FMA · mmap · paged KV cache**
 
 Status: **Active experimental runtime · trained-model validation up to 7B**
+
+**Current model scope:** the real-model inference path accepts GGUF files with `general.architecture=llama`. Tokenizer support also covers GPT-2-style GGUF tokenizers, but non-Llama transformer architectures are not yet supported by the real-model executor.
 
 **Quick links:** [7B benchmark](#results-at-a-glance) · [30-second start](#30-second-start) · [Architecture](#architecture) · [Benchmark evidence](#benchmark-evidence) · [Reproduction](#reproducing-the-benchmarks) · [Contributing](#contributing)
 
@@ -124,7 +126,7 @@ The runtime is designed to keep model access and cache behavior bounded while ex
 
 ## Runtime capabilities
 
-- native **GGUF** model execution
+- native **Llama-architecture GGUF** model execution
 - **Q4_0, Q6_K, Q8_0, F16 and F32** tensor paths
 - **AVX2/FMA** quantized CPU kernels
 - mmap-backed tensor access

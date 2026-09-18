@@ -14,7 +14,13 @@ using Clock=std::chrono::steady_clock;
 namespace {
 struct Stat{double mean{},sd{},median{},min{},max{};};
 Stat stat(std::vector<double>v){Stat s;if(v.empty())return s;s.mean=std::accumulate(v.begin(),v.end(),0.0)/v.size();double q=0;for(double x:v)q+=(x-s.mean)*(x-s.mean);s.sd=v.size()>1?std::sqrt(q/(v.size()-1)):0;s.min=*std::min_element(v.begin(),v.end());s.max=*std::max_element(v.begin(),v.end());std::sort(v.begin(),v.end());s.median=v.size()%2?v[v.size()/2]:(v[v.size()/2-1]+v[v.size()/2])/2;return s;}
-double rss_mib(){rusage r{};getrusage(RUSAGE_SELF,&r);return r.ru_maxrss/1024.0;}
+double rss_mib(){rusage r{};getrusage(RUSAGE_SELF,&r);
+#if defined(__APPLE__)
+return static_cast<double>(r.ru_maxrss)/(1024.0*1024.0);
+#else
+return static_cast<double>(r.ru_maxrss)/1024.0;
+#endif
+}
 std::vector<int> fixed_tokens(std::size_t n,std::size_t vocab){std::vector<int>x(n);for(std::size_t i=0;i<n;++i)x[i]=static_cast<int>((i*1543+17)%std::max<std::size_t>(vocab,1));return x;}
 }
 int main(int argc,char**argv){try{std::string path,csv;unsigned threads=std::max(1u,std::thread::hardware_concurrency()),reps=5,warmup=1;std::size_t ctx=1024,prompt_n=512,gen_n=128,client_prompt=128,client_out=256,batch_size=64;std::string kv="f16";bool run_client=true;for(int i=1;i<argc;++i){std::string a=argv[i];auto val=[&](){if(i+1>=argc)throw std::runtime_error("missing value");return std::string(argv[++i]);};if(a=="--model")path=val();else if(a=="--threads")threads=std::stoul(val());else if(a=="--reps")reps=std::stoul(val());else if(a=="--warmup")warmup=std::stoul(val());else if(a=="--ctx")ctx=std::stoull(val());else if(a=="--prompt")prompt_n=std::stoull(val());else if(a=="--gen")gen_n=std::stoull(val());else if(a=="--client-prompt")client_prompt=std::stoull(val());else if(a=="--client-out")client_out=std::stoull(val());else if(a=="--csv")csv=val();else if(a=="--batch")batch_size=std::stoull(val());else if(a=="--kv")kv=val();else if(a=="--no-client")run_client=false;else throw std::runtime_error("unknown arg: "+a);}if(path.empty())throw std::runtime_error("--model required");auto load0=Clock::now();memvanta::LlamaModel m(path,threads,ctx,128,memvanta::parse_kv_cache_type(kv));auto load1=Clock::now();const double load_ms=std::chrono::duration<double,std::milli>(load1-load0).count();prompt_n=std::min(prompt_n,m.config().n_ctx);gen_n=std::min(gen_n,m.config().n_ctx);client_prompt=std::min(client_prompt,m.config().n_ctx>2?m.config().n_ctx-2:std::size_t(0));client_out=std::min(client_out,m.config().n_ctx-client_prompt);if(run_client&&client_out<2)throw std::runtime_error("client benchmark requires at least 2 output tokens; reduce --client-prompt or increase --ctx");auto prompt=fixed_tokens(prompt_n,m.config().vocab),seed=fixed_tokens(std::min<std::size_t>(128,m.config().n_ctx>gen_n?m.config().n_ctx-gen_n:0),m.config().vocab),cp=fixed_tokens(client_prompt,m.config().vocab);memvanta::Sampler greedy({0,1,1});

@@ -11,7 +11,9 @@
 #include <cstdio>
 #include <fstream>
 #include <iostream>
+#include <limits>
 #include <random>
+#include <stdexcept>
 #include <vector>
 int main(){
   CHECK(memvanta::parse_size("1M")==1048576);
@@ -19,6 +21,35 @@ int main(){
     std::vector<std::byte> src(64); memvanta::TensorCache c(128);
     auto a=c.get_or_load(1,src.data(),64); auto b=c.get_or_load(1,src.data(),64);
     auto st=c.stats(); CHECK(st.hits==1 && st.misses==1); (void)a;(void)b;
+  }
+  {
+    bool threw=false;try{(void)memvanta::ggml_tensor_nbytes(memvanta::GgmlType::F32,std::numeric_limits<std::uint64_t>::max());}catch(const std::runtime_error&){threw=true;}
+    CHECK_MSG(threw,"GGUF byte-size overflow was not rejected");
+    memvanta::GgufTensor t;t.dims={64,0};threw=false;try{(void)t.elements();}catch(const std::runtime_error&){threw=true;}
+    CHECK_MSG(threw,"zero tensor dimension was not rejected");
+  }
+  {
+    const char* path="memvanta_metadata_only_test.gguf";
+    {std::ofstream f(path,std::ios::binary);const char magic[4]={'G','G','U','F'};std::uint32_t version=3;std::uint64_t zero=0;f.write(magic,4);f.write(reinterpret_cast<const char*>(&version),sizeof(version));f.write(reinterpret_cast<const char*>(&zero),sizeof(zero));f.write(reinterpret_cast<const char*>(&zero),sizeof(zero));}
+    bool parsed=false;try{memvanta::GgufFile g(path);parsed=g.tensors().empty();}catch(...){parsed=false;}
+    CHECK_MSG(parsed,"metadata-only GGUF with zero tensors was rejected");std::remove(path);
+
+    const char* truncated="memvanta_truncated_gguf_test.gguf";
+    {std::ofstream f(truncated,std::ios::binary);f.write("GGUF",4);}
+    bool threw=false;try{memvanta::GgufFile g(truncated);(void)g;}catch(const std::runtime_error&){threw=true;}
+    CHECK_MSG(threw,"truncated GGUF header was not rejected");std::remove(truncated);
+  }
+  {
+    const char* path="memvanta_bad_quant_row_test.gguf";
+    {
+      std::ofstream f(path,std::ios::binary);const char magic[4]={'G','G','U','F'};std::uint32_t version=3;std::uint64_t nt=1,nkv=0;
+      f.write(magic,4);f.write(reinterpret_cast<const char*>(&version),sizeof(version));f.write(reinterpret_cast<const char*>(&nt),sizeof(nt));f.write(reinterpret_cast<const char*>(&nkv),sizeof(nkv));
+      const std::string name="bad.weight";std::uint64_t name_len=name.size();std::uint32_t nd=2;std::uint64_t d0=16,d1=2;std::uint32_t type=static_cast<std::uint32_t>(memvanta::GgmlType::Q4_0);std::uint64_t rel=0;
+      f.write(reinterpret_cast<const char*>(&name_len),sizeof(name_len));f.write(name.data(),static_cast<std::streamsize>(name.size()));f.write(reinterpret_cast<const char*>(&nd),sizeof(nd));f.write(reinterpret_cast<const char*>(&d0),sizeof(d0));f.write(reinterpret_cast<const char*>(&d1),sizeof(d1));f.write(reinterpret_cast<const char*>(&type),sizeof(type));f.write(reinterpret_cast<const char*>(&rel),sizeof(rel));
+      const auto pos=static_cast<std::uint64_t>(f.tellp());const auto aligned=(pos+31u)&~std::uint64_t(31u);for(std::uint64_t i=pos;i<aligned+18;++i)f.put('\0');
+    }
+    bool threw=false;try{memvanta::GgufFile g(path);(void)g;}catch(const std::runtime_error&){threw=true;}
+    CHECK_MSG(threw,"quantized tensor with a non-block-aligned row was not rejected");std::remove(path);
   }
   {
     constexpr std::size_t n=256; std::vector<float>a(n),x(n);
@@ -36,6 +67,10 @@ int main(){
     // Report one failure with a count rather than one per unvisited index.
     const auto missed=static_cast<std::size_t>(std::count(seen.begin(),seen.end(),0));
     CHECK_MSG(missed==0,"WorkerPool::parallel_for left indices unvisited");
+    bool threw=false;try{pool.parallel_for(64,[&](std::size_t a,std::size_t){if(a>0)throw std::runtime_error("worker failure");});}catch(const std::runtime_error&){threw=true;}
+    CHECK_MSG(threw,"WorkerPool did not propagate a worker exception");
+    std::fill(seen.begin(),seen.end(),0);pool.parallel_for(seen.size(),[&](std::size_t a,std::size_t b){for(std::size_t i=a;i<b;++i)seen[i]=1;});
+    CHECK_MSG(std::count(seen.begin(),seen.end(),0)==0,"WorkerPool did not recover after a propagated exception");
   }
   {
     constexpr std::size_t d=64; std::vector<float> k(d),v(d),q(d),out(d),refv(d); std::mt19937 g(11); std::uniform_real_distribution<float> dist(-1,1);
