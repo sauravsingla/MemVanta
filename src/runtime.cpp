@@ -4,6 +4,7 @@
 #include <chrono>
 #include <fstream>
 #include <limits>
+#include <memory>
 #include <string>
 #include <unordered_set>
 namespace memvanta {
@@ -42,7 +43,12 @@ RunStats Runtime::run_stream(){
         }
       }
       auto&s=store_.slice(i); const std::byte* ptr=nullptr;
-      if(cfg_.copy_cache){ auto buf=cache_.get_or_load(i,store_.ptr(i),s.bytes); store_.release(i); ptr=buf->data(); }
+      std::shared_ptr<const std::vector<std::byte>> cache_buf;
+      if(cfg_.copy_cache){
+        cache_buf=cache_.get_or_load(i,store_.ptr(i),s.bytes);
+        store_.release(i);
+        ptr=cache_buf->data();
+      }
       else { store_.prefetch(i); ptr=store_.ptr(i); }
       const auto* u=reinterpret_cast<const unsigned char*>(ptr); std::uint64_t stride=4096;
       for(std::uint64_t j=0;j<s.bytes;j+=stride){ checksum^=u[j]; checksum*=1099511628211ull; }
