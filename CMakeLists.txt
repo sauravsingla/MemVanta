@@ -44,6 +44,10 @@ add_executable(memvanta_tests tests/tests.cpp)
 target_link_libraries(memvanta_tests PRIVATE memvanta_core)
 enable_testing()
 add_test(NAME memvanta_tests COMMAND memvanta_tests)
+# Unit tests normally finish in well under a second. Keep a bounded per-test timeout so
+# an intermittent deadlock fails with a useful CTest result instead of consuming the
+# entire GitHub Actions job timeout.
+set_tests_properties(memvanta_tests PROPERTIES TIMEOUT 120)
 
 add_executable(memvanta_real src/real_main.cpp)
 target_link_libraries(memvanta_real PRIVATE memvanta_core)
