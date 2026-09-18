@@ -11,7 +11,9 @@
 #include <cstdio>
 #include <fstream>
 #include <iostream>
+#include <limits>
 #include <random>
+#include <stdexcept>
 #include <vector>
 int main(){
   CHECK(memvanta::parse_size("1M")==1048576);
@@ -19,6 +21,12 @@ int main(){
     std::vector<std::byte> src(64); memvanta::TensorCache c(128);
     auto a=c.get_or_load(1,src.data(),64); auto b=c.get_or_load(1,src.data(),64);
     auto st=c.stats(); CHECK(st.hits==1 && st.misses==1); (void)a;(void)b;
+  }
+  {
+    bool threw=false;try{(void)memvanta::ggml_tensor_nbytes(memvanta::GgmlType::F32,std::numeric_limits<std::uint64_t>::max());}catch(const std::runtime_error&){threw=true;}
+    CHECK_MSG(threw,"GGUF byte-size overflow was not rejected");
+    memvanta::GgufTensor t;t.dims={64,0};threw=false;try{(void)t.elements();}catch(const std::runtime_error&){threw=true;}
+    CHECK_MSG(threw,"zero tensor dimension was not rejected");
   }
   {
     constexpr std::size_t n=256; std::vector<float>a(n),x(n);
@@ -36,6 +44,10 @@ int main(){
     // Report one failure with a count rather than one per unvisited index.
     const auto missed=static_cast<std::size_t>(std::count(seen.begin(),seen.end(),0));
     CHECK_MSG(missed==0,"WorkerPool::parallel_for left indices unvisited");
+    bool threw=false;try{pool.parallel_for(64,[&](std::size_t a,std::size_t){if(a>0)throw std::runtime_error("worker failure");});}catch(const std::runtime_error&){threw=true;}
+    CHECK_MSG(threw,"WorkerPool did not propagate a worker exception");
+    std::fill(seen.begin(),seen.end(),0);pool.parallel_for(seen.size(),[&](std::size_t a,std::size_t b){for(std::size_t i=a;i<b;++i)seen[i]=1;});
+    CHECK_MSG(std::count(seen.begin(),seen.end(),0)==0,"WorkerPool did not recover after a propagated exception");
   }
   {
     constexpr std::size_t d=64; std::vector<float> k(d),v(d),q(d),out(d),refv(d); std::mt19937 g(11); std::uniform_real_distribution<float> dist(-1,1);
