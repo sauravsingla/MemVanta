@@ -1,2 +1,2 @@
-[MemVanta real GGUF] prompt tokens=12 model=Openllama Source
- a very
+[MemVanta real GGUF] prompt tokens=6 model=Openllama Source
+ a city
