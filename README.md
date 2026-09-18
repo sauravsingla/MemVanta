@@ -2,9 +2,23 @@
 
 **Run larger local LLMs with less RAM.**
 
-MemVanta is an experimental C++20 CPU runtime for quantized Llama-family GGUF models, focused on **memory-efficient inference**.
+MemVanta is an experimental C++20 runtime for **low-memory CPU LLM inference** with quantized Llama-family **GGUF models**. It explores mmap-backed model access, quantized CPU kernels, and paged KV cache for memory-constrained local AI.
 
-## Benchmark
+## Try MemVanta
+
+Build and test on Linux or macOS:
+
+```bash
+git clone https://github.com/sauravsingla/MemVanta.git
+cd MemVanta
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j
+ctest --test-dir build --output-on-failure
+```
+
+To reproduce the published memory measurements against pinned `llama.cpp`, follow the **[reproduction guide](docs/EXTERNAL_REPRODUCTION.md)**.
+
+## Benchmark: MemVanta vs llama.cpp
 
 | | MemVanta | pinned `llama.cpp` |
 |---|---:|---:|
@@ -15,37 +29,24 @@ MemVanta is an experimental C++20 CPU runtime for quantized Llama-family GGUF mo
 
 [Raw evidence](results/openllama-7b-v2-ab/) · [Memory-pressure test](results/openllama-7b-v2-ram-constrained/) · [Methodology](docs/MEMORY_BENCHMARKING.md)
 
-`llama.cpp` is substantially faster in this test; MemVanta targets the memory side of the trade-off.
+`llama.cpp` is substantially faster in this test; MemVanta focuses on the **memory-efficiency side of CPU inference**.
 
-## 🧪 Reproduce it
+## Low-memory CPU LLM inference
 
-Have a Linux or macOS CPU machine? Try to confirm, narrow, or contradict the result.
+MemVanta focuses on:
 
-```bash
-git clone https://github.com/sauravsingla/MemVanta.git
-cd MemVanta
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build -j
-ctest --test-dir build --output-on-failure
-```
-
-Then follow the **[reproduction guide](docs/EXTERNAL_REPRODUCTION.md)** and share your CPU, RAM, compiler, model SHA, peak RSS and throughput.
-
-## What MemVanta explores
-
-- low-RAM CPU inference
-- quantized GGUF kernels and AVX2/FMA
+- quantized **GGUF inference** on memory-constrained CPUs
 - mmap-backed model access and paged KV cache
-- throughput improvements that preserve the memory advantage
+- Q4/Q8 and AVX2/FMA optimization while preserving memory efficiency
 
 Current real-model execution supports GGUF files with `general.architecture=llama`.
 
-## Get involved
+## Contributing
 
-Independent reproductions, CPU kernel work, GGUF compatibility testing, profiling, and negative results are welcome.
+Independent benchmark reproductions, CPU kernel optimizations, GGUF compatibility testing, profiling, and well-documented negative results are welcome.
 
 [Contributing](CONTRIBUTING.md) · [All evidence](results/) · [Citation](CITATION.cff) · [License](LICENSE)
 
 ---
 
-**Status:** Active research prototype with trained-model evidence up to 7B. Results are scoped to the tested models, settings and hosts, and independent third-party reproduction is still needed.
+**Status:** Active research prototype with trained-model evidence up to 7B. Results are scoped to the tested models, settings, and hosts; independent third-party reproduction is still needed.
