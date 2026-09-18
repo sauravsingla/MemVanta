@@ -29,6 +29,29 @@ int main(){
     CHECK_MSG(threw,"zero tensor dimension was not rejected");
   }
   {
+    const char* path="memvanta_metadata_only_test.gguf";
+    {std::ofstream f(path,std::ios::binary);const char magic[4]={'G','G','U','F'};std::uint32_t version=3;std::uint64_t zero=0;f.write(magic,4);f.write(reinterpret_cast<const char*>(&version),sizeof(version));f.write(reinterpret_cast<const char*>(&zero),sizeof(zero));f.write(reinterpret_cast<const char*>(&zero),sizeof(zero));}
+    bool parsed=false;try{memvanta::GgufFile g(path);parsed=g.tensors().empty();}catch(...){parsed=false;}
+    CHECK_MSG(parsed,"metadata-only GGUF with zero tensors was rejected");std::remove(path);
+
+    const char* truncated="memvanta_truncated_gguf_test.gguf";
+    {std::ofstream f(truncated,std::ios::binary);f.write("GGUF",4);}
+    bool threw=false;try{memvanta::GgufFile g(truncated);(void)g;}catch(const std::runtime_error&){threw=true;}
+    CHECK_MSG(threw,"truncated GGUF header was not rejected");std::remove(truncated);
+  }
+  {
+    const char* path="memvanta_bad_quant_row_test.gguf";
+    {
+      std::ofstream f(path,std::ios::binary);const char magic[4]={'G','G','U','F'};std::uint32_t version=3;std::uint64_t nt=1,nkv=0;
+      f.write(magic,4);f.write(reinterpret_cast<const char*>(&version),sizeof(version));f.write(reinterpret_cast<const char*>(&nt),sizeof(nt));f.write(reinterpret_cast<const char*>(&nkv),sizeof(nkv));
+      const std::string name="bad.weight";std::uint64_t name_len=name.size();std::uint32_t nd=2;std::uint64_t d0=16,d1=2;std::uint32_t type=static_cast<std::uint32_t>(memvanta::GgmlType::Q4_0);std::uint64_t rel=0;
+      f.write(reinterpret_cast<const char*>(&name_len),sizeof(name_len));f.write(name.data(),static_cast<std::streamsize>(name.size()));f.write(reinterpret_cast<const char*>(&nd),sizeof(nd));f.write(reinterpret_cast<const char*>(&d0),sizeof(d0));f.write(reinterpret_cast<const char*>(&d1),sizeof(d1));f.write(reinterpret_cast<const char*>(&type),sizeof(type));f.write(reinterpret_cast<const char*>(&rel),sizeof(rel));
+      const auto pos=static_cast<std::uint64_t>(f.tellp());const auto aligned=(pos+31u)&~std::uint64_t(31u);for(std::uint64_t i=pos;i<aligned+18;++i)f.put('\0');
+    }
+    bool threw=false;try{memvanta::GgufFile g(path);(void)g;}catch(const std::runtime_error&){threw=true;}
+    CHECK_MSG(threw,"quantized tensor with a non-block-aligned row was not rejected");std::remove(path);
+  }
+  {
     constexpr std::size_t n=256; std::vector<float>a(n),x(n);
     std::mt19937 g(7); std::uniform_real_distribution<float>d(-1,1);
     float ref=0; for(std::size_t i=0;i<n;++i){a[i]=d(g);x[i]=d(g);ref+=a[i]*x[i];}
