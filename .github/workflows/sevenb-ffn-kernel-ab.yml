@@ -7,7 +7,6 @@ on:
       - '.github/workflows/sevenb-ffn-kernel-ab.yml'
       - 'src/gguf_kernels.cpp'
       - 'include/memvanta/gguf_kernels.hpp'
-      - 'src/llama_model.cpp'
       - 'benchmarks/profile_bench.cpp'
   push:
     branches: [main]
@@ -15,8 +14,10 @@ on:
       - '.github/workflows/sevenb-ffn-kernel-ab.yml'
       - 'src/gguf_kernels.cpp'
       - 'include/memvanta/gguf_kernels.hpp'
-      - 'src/llama_model.cpp'
       - 'benchmarks/profile_bench.cpp'
+
+permissions:
+  contents: read
 
 env:
   MODEL: openlm-research-open_llama_7b_v2-Q4_0.gguf
@@ -37,7 +38,60 @@ env:
   MALLOC_ARENA_MAX: 2
 
 jobs:
+  scope:
+    name: Detect FFN kernel benchmark scope
+    runs-on: ubuntu-latest
+    outputs:
+      run_ab: ${{ steps.scope.outputs.run_ab }}
+    steps:
+      - name: Checkout history for scope detection
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect kernel-relevant changes
+        id: scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "run_ab=true" >> "$GITHUB_OUTPUT"
+            echo "Manual dispatch: running full FFN A/B."
+            exit 0
+          fi
+
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            base="${{ github.event.pull_request.base.sha }}"
+            head="${{ github.event.pull_request.head.sha }}"
+          else
+            base="${{ github.event.before }}"
+            head="${GITHUB_SHA}"
+          fi
+
+          git fetch --no-tags origin "$base" "$head"
+          git diff --name-only "$base" "$head" | tee changed-files.txt
+
+          run_ab=false
+          while IFS= read -r path; do
+            case "$path" in
+              src/gguf_kernels.cpp|include/memvanta/gguf_kernels.hpp|benchmarks/profile_bench.cpp)
+                run_ab=true
+                break
+                ;;
+            esac
+          done < changed-files.txt
+
+          echo "run_ab=$run_ab" >> "$GITHUB_OUTPUT"
+          if [ "$run_ab" = true ]; then
+            echo "Kernel/profile code changed: running repeated 7B A/B."
+          else
+            echo "No FFN kernel/profile code changed: specialized A/B is not applicable."
+            echo "Broader llama_model.cpp runtime changes are covered by Seven Billion Throughput Profile."
+          fi
+
   compare:
+    needs: scope
+    if: needs.scope.outputs.run_ab == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 180
     steps:
