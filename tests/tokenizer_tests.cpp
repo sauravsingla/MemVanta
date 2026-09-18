@@ -11,6 +11,7 @@ static void roundtrip(memvanta::GgufTokenizer& t,const std::string& s){
     auto ids=t.encode(s,false);auto d=t.decode(ids);
     CHECK_MSG(d==s,("encode/decode round-trip mismatch, model="+t.model_type()).c_str());
 }
+static std::string ids_text(const std::vector<int>& ids){std::string s="[";for(std::size_t i=0;i<ids.size();++i){if(i)s+=",";s+=std::to_string(ids[i]);}return s+"]";}
 int main(int argc,char**argv){
     if(argc!=3){std::cerr<<"usage: tokenizer_tests <gpt2.gguf> <sp.gguf>\n";return 2;}
     memvanta::GgufFile gf(argv[1]),sf(argv[2]);memvanta::GgufTokenizer g(gf),sp(sf);
@@ -32,7 +33,7 @@ int main(int argc,char**argv){
       {"  spaces   and\ttabs",{259,259,259,264,275,298,312,259,259,259,262,265,268,12,306,282,264}},
       {"if (x < 10) { return x * x; }",{259,270,267,259,315,277,259,321,259,319,318,316,259,327,259,305,307,266,299,301,259,317,301,320,259,328}},
     };
-    for(const auto&c:cs){auto got=sp.encode(c.s,false);CHECK_MSG(got==c.ids,("SentencePiece parity mismatch: "+c.s).c_str());roundtrip(sp,c.s);}
+    for(const auto&c:cs){auto got=sp.encode(c.s,false);auto msg="SentencePiece parity mismatch: "+c.s+" got="+ids_text(got)+" expected="+ids_text(c.ids);CHECK_MSG(got==c.ids,msg.c_str());roundtrip(sp,c.s);}
     CHECK(sp.encode("",false).empty());CHECK(g.encode("",false).empty());
     if(memvanta_test::failures()){ std::cerr<<"FAILED\n"; return 1; }
     std::cout<<"tokenizer tests ok: 2 tokenizer families, 202 byte-fuzz cases, 6 exact SentencePiece parity vectors\n";
