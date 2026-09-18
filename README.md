@@ -13,8 +13,6 @@ MemVanta is an experimental C++20 CPU runtime for quantized Llama-family GGUF mo
 | Token generation | 1.52 ± 0.02 tok/s | **7.76 ± 0.09 tok/s** |
 | 3584 MiB memory ceiling | **Completed** | OOM-killed |
 
-Same GGUF · CPU-only · 4 threads · pp512/tg128 · context 768 · batch 32 · F16 KV · 1 warm-up + 5 measured runs.
-
 [Raw evidence](results/openllama-7b-v2-ab/) · [Memory-pressure test](results/openllama-7b-v2-ram-constrained/) · [Methodology](docs/MEMORY_BENCHMARKING.md)
 
 `llama.cpp` is substantially faster in this test; MemVanta targets the memory side of the trade-off.
