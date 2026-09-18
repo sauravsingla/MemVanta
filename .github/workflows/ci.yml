@@ -76,6 +76,47 @@ jobs:
       - name: Test under sanitizers
         run: ctest --test-dir build-sanitize --output-on-failure
 
+      - name: Build GGUF fuzz target
+        run: |
+          cmake -S . -B build-fuzz -G Ninja -DMEMVANTA_NATIVE=OFF -DMEMVANTA_BUILD_FUZZER=ON
+          cmake --build build-fuzz --target memvanta_gguf_fuzz -j "$(nproc)"
+
+      - name: GGUF fuzz smoke
+        run: ./build-fuzz/memvanta_gguf_fuzz -runs=250 -max_len=4096
+
+  thread-sanitizer:
+    name: clang-TSan
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CC: clang
+      CXX: clang++
+      TSAN_OPTIONS: halt_on_error=1:second_deadlock_stack=1
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build
+
+      - name: Configure with ThreadSanitizer
+        run: >-
+          cmake -S . -B build-tsan -G Ninja
+          -DCMAKE_BUILD_TYPE=Debug
+          -DMEMVANTA_NATIVE=OFF
+          -DCMAKE_DISABLE_FIND_PACKAGE_OpenMP=TRUE
+          -DCMAKE_CXX_FLAGS="-fsanitize=thread -fno-omit-frame-pointer"
+          -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=thread"
+
+      - name: Build
+        run: cmake --build build-tsan -j "$(nproc)"
+
+      - name: Test under ThreadSanitizer
+        run: ctest --test-dir build-tsan --output-on-failure
+
   macos:
     name: macOS-Clang
     runs-on: macos-latest
