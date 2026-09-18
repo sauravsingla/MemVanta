@@ -2,10 +2,10 @@
 
 Generated from the pinned official OpenLLaMA source revision, then benchmarked as the exact same GGUF on both runtimes. CPU-only, 4 threads, pp512/tg128, context 768, batch 32, F16 KV, 5 repetitions.
 
-- MemVanta pp: 5.30 ± 0.01 tok/s
-- llama.cpp pp: 24.41 ± 0.03 tok/s
-- MemVanta tg: 3.43 ± 0.00 tok/s
-- llama.cpp tg: 15.70 ± 0.05 tok/s
-- MemVanta peak RSS: 2120476 KiB
-- llama.cpp peak RSS: 3882468 KiB
-- MemVanta RSS reduction: 45.38%
+- MemVanta pp: 5.01 ± 0.01 tok/s
+- llama.cpp pp: 28.86 ± 0.03 tok/s
+- MemVanta tg: 2.85 ± 0.00 tok/s
+- llama.cpp tg: 11.92 ± 0.02 tok/s
+- MemVanta peak RSS: 2120436 KiB
+- llama.cpp peak RSS: 3882772 KiB
+- MemVanta RSS reduction: 45.39%
