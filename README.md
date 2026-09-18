@@ -1,89 +1,55 @@
 # MemVanta
 
 [![Build](https://github.com/sauravsingla/MemVanta/actions/workflows/ci.yml/badge.svg)](https://github.com/sauravsingla/MemVanta/actions/workflows/ci.yml)
-[![7B A/B](https://github.com/sauravsingla/MemVanta/actions/workflows/sevenb-model-ab.yml/badge.svg)](https://github.com/sauravsingla/MemVanta/actions/workflows/sevenb-model-ab.yml)
-[![RAM Constrained 7B](https://github.com/sauravsingla/MemVanta/actions/workflows/sevenb-ram-constrained.yml/badge.svg)](https://github.com/sauravsingla/MemVanta/actions/workflows/sevenb-ram-constrained.yml)
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-blue.svg)](CMakeLists.txt)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Cite](https://img.shields.io/badge/cite-CITATION.cff-blue.svg)](CITATION.cff)
 
-**Memory-efficient local LLM inference in C++20.**
+## Fit larger local LLMs into smaller RAM budgets
 
-> **Run quantized Llama-family GGUF models on CPUs when RAM capacity matters more than maximum tokens/sec.**
+**MemVanta is a native C++20 CPU inference runtime for quantized Llama-family GGUF models, designed for systems where memory matters more than maximum tokens/sec.**
 
-MemVanta is an experimental CPU inference runtime built around one goal: **fit larger local LLMs into smaller RAM budgets** using quantized kernels, mmap-backed model access, bounded caching, and paged KV cache.
+> **OpenLLaMA 7B v2 Q4_0: ~3.80 GiB peak RSS with MemVanta vs ~7.24 GiB with pinned `llama.cpp` — 47.50% lower in the published test.**
 
-**47.50% lower peak RSS on OpenLLaMA 7B v2 Q4_0 · ~3.80 GiB vs 7.24 GiB**  
-**CPU-only · GGUF · Q4_0 / Q6_K / Q8_0 · AVX2/FMA · mmap · paged KV cache**
+CPU-only · GGUF · Q4_0 / Q6_K / Q8_0 · mmap · paged KV cache · AVX2/FMA
 
-Status: **Active experimental runtime · trained-model validation up to 7B**
-
-**Current model scope:** the real-model inference path accepts GGUF files with `general.architecture=llama`. Tokenizer support also covers GPT-2-style GGUF tokenizers, but non-Llama transformer architectures are not yet supported by the real-model executor.
-
-**Quick links:** [7B benchmark](#results-at-a-glance) · [30-second start](#30-second-start) · [Architecture](#architecture) · [Benchmark evidence](#benchmark-evidence) · [Reproduction](#reproducing-the-benchmarks) · [Contributing](#contributing)
-
-> **Want to try it?** Build and run the benchmark executable → [30-second start](#30-second-start)
-
-## When should I use MemVanta?
-
-MemVanta is designed for experiments where **RAM is the primary constraint**: low-memory CPU inference, edge or constrained machines, GGUF runtime research, quantized kernel work, mmap/page-cache behavior, and memory-vs-throughput benchmarking.
-
-If maximum throughput is the goal, `llama.cpp` is substantially faster in the current 7B measurements. MemVanta focuses instead on **reducing resident memory while reporting the throughput cost transparently**.
-
-## What is different?
-
-MemVanta brings four concerns into one systems design:
-
-- **Memory-first execution:** mmap-backed tensor access, bounded caching and prefetch experiments.
-- **Quantized CPU inference:** Q4_0, Q6_K, Q8_0, F16 and F32 tensor paths with AVX2/FMA kernels.
-- **Paged attention state:** F32, F16 and Q8 KV-cache paths for bounded runtime memory behavior.
-- **Auditable evaluation:** same-GGUF comparisons, retained raw evidence, constrained-memory sweeps and explicit claim boundaries.
+**MemVanta is experimental.** `llama.cpp` is substantially faster in the current 7B benchmark; MemVanta explores the opposite side of the trade-off: **how far can resident memory be reduced while still running useful local LLM inference?**
 
 ## Results at a glance
 
-> Published numbers are **reproducible engineering evidence scoped to the tested models, settings and hosts**.
-
-| Evidence | Verified result |
-|---|---|
-| OpenLLaMA 7B v2 Q4_0 peak RSS | **3.80 GiB MemVanta vs 7.24 GiB llama.cpp — 47.50% lower** |
-| 7B constrained-memory sweep | **MemVanta completed at 3584 MiB; llama.cpp was OOM-killed** |
-| llama.cpp lowest successful tested ceiling | **3840 MiB** |
-| Prompt processing | 3.15 ± 0.04 tok/s vs 45.82 ± 0.96 tok/s |
-| Token generation | 1.52 ± 0.02 tok/s vs 7.76 ± 0.09 tok/s |
-| Published trained-model evidence | **360M · 1.1B · 3B · 7B** |
-
-### 7B comparison
-
-**OpenLLaMA 7B v2 Q4_0 · exact same GGUF · CPU only · 4 threads · pp512/tg128 · context 768 · batch 32 · F16 KV · 1 warm-up + 5 measured runs**
-
-| Metric | MemVanta | llama.cpp |
+| Metric | MemVanta | pinned `llama.cpp` |
 |---|---:|---:|
-| Peak RSS | **3,983,412 KiB (~3.80 GiB)** | 7,586,960 KiB (~7.24 GiB) |
+| Peak RSS — OpenLLaMA 7B v2 Q4_0 | **~3.80 GiB** | ~7.24 GiB |
+| Peak RSS reduction | **47.50%** | — |
 | Prompt processing | 3.15 ± 0.04 tok/s | **45.82 ± 0.96 tok/s** |
 | Token generation | 1.52 ± 0.02 tok/s | **7.76 ± 0.09 tok/s** |
+| 3584 MiB constrained-memory test | **Completed** | OOM-killed |
 
-**Peak resident-memory reduction: 47.50% (~3.44 GiB less).**
+The 7B comparison used the **same GGUF**, CPU-only execution, 4 threads, pp512/tg128, context 768, batch 32, F16 KV, one warm-up and five measured runs.
 
-These results intentionally show the trade-off: **MemVanta wins on peak memory in this test; llama.cpp wins substantially on throughput.**
+These are **scoped engineering measurements, not universal performance claims**. Raw evidence is retained in the repository:
 
-Raw evidence: [`results/openllama-7b-v2-ab/`](results/openllama-7b-v2-ab/)
+- [7B repeated A/B](results/openllama-7b-v2-ab/)
+- [7B constrained-memory sweep](results/openllama-7b-v2-ram-constrained/)
+- [7B throughput profile](results/openllama-7b-v2-throughput-profile/)
+- [3B, 1.1B and 360M evidence](results/)
 
-### 7B constrained-memory result
+## Why MemVanta?
 
-In a separate Linux **cgroup-v2 `MemoryMax` sweep with swap disabled**, using the same OpenLLaMA 7B v2 Q4_0 GGUF, CPU-only, 4 threads, pp128/tg32, context 768, batch 32 and F16 KV:
+MemVanta is useful for experiments involving:
 
-- MemVanta completed at a **3584 MiB tested memory ceiling**.
-- pinned `llama.cpp` was **OOM-killed at 3584 MiB**.
-- `llama.cpp`'s lowest successful **tested** ceiling was **3840 MiB**.
-- tested-ceiling difference: **256 MiB (6.67%)**.
+- **low-RAM CPU inference** on commodity or constrained machines
+- **GGUF runtime research** and memory-vs-throughput trade-offs
+- **quantized CPU kernels** and AVX2/FMA optimization
+- **mmap-backed model access** and bounded caching
+- **paged KV cache** and constrained-memory execution
+- **reproducible comparison** against a pinned `llama.cpp`
 
-This is an execution-under-pressure result over the tested sweep, **not an exact minimum physical-RAM requirement**.
+The current real-model executor supports GGUF files with `general.architecture=llama`.
 
-Raw evidence: [`results/openllama-7b-v2-ram-constrained/`](results/openllama-7b-v2-ram-constrained/)
+## Build in 30 seconds
 
-## 30-second start
-
-Requires **CMake ≥ 3.20**, a **C++20 compiler**, and a Linux/macOS development environment. AVX2-capable x86 is recommended for optimized kernel paths.
+Requires CMake ≥ 3.20, a C++20 compiler, and Linux/macOS.
 
 ```bash
 git clone https://github.com/sauravsingla/MemVanta.git
@@ -108,13 +74,11 @@ Benchmark a GGUF model:
   --warmup 1
 ```
 
-For reproducible comparisons, use the same model file, SHA-256, CPU/thread settings, context, batch size, KV type, prompt length and generation length for both runtimes.
-
-## Architecture
+## How it works
 
 ```mermaid
 flowchart LR
-    A[GGUF model] --> B[mmap-backed tensor access]
+    A[GGUF model] --> B[mmap-backed tensors]
     B --> C[bounded cache / prefetch]
     C --> D[Q4 / Q6 / Q8 CPU kernels]
     D --> E[Transformer execution]
@@ -122,92 +86,55 @@ flowchart LR
     F --> G[tokens]
 ```
 
-The runtime is designed to keep model access and cache behavior bounded while executing quantized transformer workloads on CPU.
+MemVanta currently includes:
 
-## Runtime capabilities
-
-- native **Llama-architecture GGUF** model execution
-- **Q4_0, Q6_K, Q8_0, F16 and F32** tensor paths
-- **AVX2/FMA** quantized CPU kernels
+- Llama-architecture GGUF execution
+- Q4_0, Q6_K, Q8_0, F16 and F32 tensor paths
+- AVX2/FMA quantized CPU kernels
 - mmap-backed tensor access
 - bounded caching and prefetch experiments
-- paged **F32 / F16 / Q8 KV cache**
-- batched prefill and token decode paths
-- GPT-2 and Llama/SentencePiece-style tokenization
-- trained-model CPU benchmarking against pinned `llama.cpp`
-- constrained-memory and cgroup-v2 benchmark workflows
-- layer/kernel profiling for 7B throughput bottlenecks
+- F32 / F16 / Q8 paged KV cache
+- batched prefill and token decode
+- Llama/SentencePiece-style and GPT-2-style tokenizer support
+- real-model benchmarking, profiling and constrained-memory workflows
+
+## Help reproduce it
+
+**Independent reproduction is the most useful contribution right now.**
+
+If you have a Linux/macOS CPU machine, try MemVanta on your hardware and report results that **confirm, narrow, or contradict** the published measurements.
+
+- [External reproduction guide](docs/EXTERNAL_REPRODUCTION.md)
+- [Memory benchmarking methodology](docs/MEMORY_BENCHMARKING.md)
+- [Benchmark checklist](docs/BENCHMARK_CHECKLIST.md)
+
+Please report the CPU, RAM, compiler, model/GGUF SHA, settings, peak RSS and throughput so results remain comparable.
 
 ## Current engineering focus
 
-Recent 7B profiling shows that the main speed bottleneck is **projection-kernel compute rather than paging** on the tested host:
+7B profiling indicates that the dominant bottleneck on the tested host is **projection-kernel compute rather than paging**. Current work therefore focuses on improving **Q4 FFN/kernel throughput without giving back the memory advantage**.
 
-- projection kernels accounted for about **98% of profiled model time**
-- **FFN GEMM** accounted for about **62% of projection-kernel time**
-- `ffn_down` was the largest individual profiled kernel class
-- only **1 major page fault** occurred in that run
+Contributions are especially welcome around:
 
-Current optimization work therefore targets the **Q4 FP32/AVX FFN path**, while retaining memory usage as a hard regression guardrail.
+- Q4/Q8 CPU kernel optimization
+- SIMD / AVX performance
+- GGUF compatibility
+- quantization and KV-cache work
+- profiling and performance analysis
+- independent benchmark reproduction
 
-Evidence: [`results/openllama-7b-v2-throughput-profile/`](results/openllama-7b-v2-throughput-profile/)
+See [CONTRIBUTING.md](CONTRIBUTING.md).
 
-## Benchmark evidence
+## Status and claim boundary
 
-Headline results are backed by raw evidence retained in the repository rather than only transient CI logs.
+MemVanta is an **active research and engineering prototype** with trained-model evidence up to 7B. APIs and performance characteristics may change.
 
-| Model / experiment | Evidence |
-|---|---|
-| OpenLLaMA 7B v2 repeated A/B | [`results/openllama-7b-v2-ab/`](results/openllama-7b-v2-ab/) |
-| OpenLLaMA 7B v2 constrained RAM | [`results/openllama-7b-v2-ram-constrained/`](results/openllama-7b-v2-ram-constrained/) |
-| OpenLLaMA 7B v2 throughput profile | [`results/openllama-7b-v2-throughput-profile/`](results/openllama-7b-v2-throughput-profile/) |
-| OpenLLaMA 3B v2 repeated A/B | [`results/openllama-3b-v2-ab/`](results/openllama-3b-v2-ab/) |
-| TinyLlama 1.1B constrained RAM | [`results/tinyllama-1.1b-ram-constrained/`](results/tinyllama-1.1b-ram-constrained/) |
-| TinyLlama 1.1B repeated A/B | [`results/tinyllama-1.1b-ab/`](results/tinyllama-1.1b-ab/) |
-| SmolLM2 360M repeated A/B | [`results/smollm2-360m-ab/`](results/smollm2-360m-ab/) |
+Published evidence currently includes repeated same-GGUF benchmarks and constrained-memory tests, but **independent third-party reproduction and broader physical-CPU validation are still needed**.
 
-## Validation status
-
-| Evidence | Status | Scope |
-|---|---|---|
-| Repeated same-GGUF 7B A/B | **Published** | 5 measured CPU runs with raw evidence |
-| 7B cgroup-v2 memory-pressure sweep | **Published** | Swap disabled; tested memory ceilings retained |
-| 7B kernel/throughput profiling | **Published** | Hotspot selection evidence |
-| Smaller-model A/B results | **Published** | 360M, 1.1B and 3B evidence retained |
-| Physical-CPU reproduction | **Pending** | Headline evidence remains scoped to tested hosts |
-| Independent third-party reproduction | **Pending / invited** | Reproduction guide and issue template available |
-
-**Claim boundary:** MemVanta does not claim a universal memory-scaling law or a throughput advantage over `llama.cpp`.
-
-## Reproducing the benchmarks
-
-- [`docs/MEMORY_BENCHMARKING.md`](docs/MEMORY_BENCHMARKING.md) — methodology and claim boundaries
-- [`docs/BENCHMARK_CHECKLIST.md`](docs/BENCHMARK_CHECKLIST.md) — publication checklist
-- [`docs/EXTERNAL_REPRODUCTION.md`](docs/EXTERNAL_REPRODUCTION.md) — independent reproduction guide
-
-Independent results that confirm, narrow, or contradict the published measurements are welcome.
-
-## Project direction
-
-> **Run larger quantized LLMs within smaller RAM budgets on commodity CPUs.**
-
-Current work focuses on improving **Q4 FFN/kernel throughput** without sacrificing the memory advantage, tightening the **7B/8B memory boundary**, reproducing results on physical CPUs, broadening GGUF model-family coverage, strengthening numerical validation, and gathering independent third-party reproduction evidence.
-
-## Project status
-
-MemVanta is an **active research and engineering prototype**. APIs and performance characteristics may evolve, so pin a commit when using results in reproducible experiments.
-
-## Contributing
-
-Contributions are welcome, particularly around **CPU/AVX kernel optimization, GGUF compatibility, quantization, KV-cache and memory management, benchmark reproduction, model-family validation, profiling and performance analysis**.
-
-See [`CONTRIBUTING.md`](CONTRIBUTING.md). For security reports, see [`SECURITY.md`](SECURITY.md).
+MemVanta does **not** claim a universal memory-scaling law or a throughput advantage over `llama.cpp`.
 
 ## Citation
 
-If MemVanta, its benchmark protocol, or its published measurements are useful in research, cite the repository using [`CITATION.cff`](CITATION.cff).
+If MemVanta or its benchmark methodology is useful in research, see [CITATION.cff](CITATION.cff).
 
-Apache-2.0 licensed. See [`LICENSE`](LICENSE).
-
----
-
-**Topics:** local LLM inference · CPU LLM inference · GGUF · quantized inference · low-RAM AI · edge AI · C++ inference runtime · Q4_0 · Q6_K · Q8_0 · mmap · paged KV cache · llama.cpp benchmarking
+Apache-2.0 licensed. See [LICENSE](LICENSE).
