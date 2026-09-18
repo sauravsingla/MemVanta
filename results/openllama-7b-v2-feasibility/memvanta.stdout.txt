@@ -2,4 +2,4 @@
 |---|---:|---:|---|---:|---|---:|
 | \hf | 3647.87 MiB | 6738.42 M | MemVanta CPU | 4 | pp512 | 3.59 ± 0.00 |
 | \hf | 3647.87 MiB | 6738.42 M | MemVanta CPU | 4 | tg128 | 1.64 ± 0.00 |
-load=11.14 ms peak_rss=3887.86 MiB kv_alloc=128.00 MiB batch=32 kv=f16
+load=10.58 ms peak_rss=3887.96 MiB kv_alloc=128.00 MiB batch=32 kv=f16
