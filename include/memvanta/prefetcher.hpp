@@ -21,8 +21,9 @@ private:
   void loop();
   const TensorStore& store_; TensorCache& cache_;
   std::atomic<bool> stop_{false};
-  std::thread worker_; std::mutex mu_; std::condition_variable cv_;
+  std::mutex mu_; std::condition_variable cv_;
   std::deque<std::uint32_t> q_; std::unordered_set<std::uint32_t> pending_;
   std::exception_ptr error_;
+  std::thread worker_;
 };
 }
