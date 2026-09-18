@@ -5,6 +5,7 @@
 #include <cstring>
 #include <limits>
 #include <numeric>
+#include <queue>
 #include <stdexcept>
 #include <unordered_map>
 #if defined(__AVX2__)
@@ -183,24 +184,25 @@ std::vector<int> GgufTokenizer::encode_gpt2(const std::string& text) const{
 }
 
 std::vector<int> GgufTokenizer::encode_sentencepiece(const std::string& text) const{
-    if(text.empty()) return {};
+    if(text.empty())return{};
     static const std::string marker="\xE2\x96\x81"; // U+2581 LOWER ONE EIGHTH BLOCK
-    std::string s=text;
-    // SentencePiece's common Llama normalization: spaces become ▁ and an optional
-    // dummy prefix is inserted. We intentionally preserve non-space bytes verbatim;
-    // invalid UTF-8 is handled through GGUF byte fallback pieces when available.
-    s=replace_all(s," ",marker);if(add_space_prefix_)s=marker+s;
-    const std::size_t n=s.size();const double neg=-1e300;std::vector<double> best(n+1,neg);std::vector<int> prev_id(n+1,-1);std::vector<std::size_t> prev_pos(n+1,0);best[0]=0;
-    for(std::size_t p=0;p<n;++p){if(best[p]<=neg/2)continue;bool matched=false;
-        for(std::size_t id=0;id<tokens_.size();++id){auto typ=token_types_[id];if(typ==2||typ==3||typ==5||typ==6)continue;const auto&t=tokens_[id];if(t.empty()||t.size()>n-p||s.compare(p,t.size(),t)!=0)continue;double cand=best[p]+scores_[id];std::size_t q=p+t.size();if(cand>best[q]){best[q]=cand;prev_id[q]=static_cast<int>(id);prev_pos[q]=p;}matched=true;}
-        if(!matched){
-            // Consume one UTF-8 unit, but represent it by byte tokens when possible.
-            auto u=utf8_at(s,p);std::size_t q=p+u.len;double cand=best[p]-1000.0;if(cand>best[q]){best[q]=cand;prev_id[q]=-2;prev_pos[q]=p;}
-        }
+    std::string s=replace_all(text," ",marker);if(add_space_prefix_)s=marker+s;
+    struct Symbol{int prev{-1},next{-1};std::size_t off{},len{};};
+    std::vector<Symbol> symbols;
+    for(std::size_t off=0;off<s.size();){auto u=utf8_at(s,off);int idx=static_cast<int>(symbols.size());symbols.push_back({idx-1,off+u.len<s.size()?idx+1:-1,off,u.len});off+=u.len;}
+    struct Bigram{int left{},right{};double score{};std::size_t size{};};
+    struct Compare{bool operator()(const Bigram&l,const Bigram&r)const{return l.score<r.score||(l.score==r.score&&l.left>r.left);}};
+    std::priority_queue<Bigram,std::vector<Bigram>,Compare> work;
+    auto try_add=[&](int left,int right){if(left<0||right<0)return;const auto&L=symbols[static_cast<std::size_t>(left)];const auto&R=symbols[static_cast<std::size_t>(right)];if(!L.len||!R.len||L.next!=right||R.prev!=left)return;auto it=token_to_id_.find(s.substr(L.off,L.len+R.len));if(it==token_to_id_.end())return;int id=it->second;if(id<0||static_cast<std::size_t>(id)>=scores_.size())return;work.push({left,right,scores_[static_cast<std::size_t>(id)],L.len+R.len});};
+    for(int i=1;i<static_cast<int>(symbols.size());++i)try_add(i-1,i);
+    while(!work.empty()){
+        auto b=work.top();work.pop();auto&L=symbols[static_cast<std::size_t>(b.left)];auto&R=symbols[static_cast<std::size_t>(b.right)];
+        if(!L.len||!R.len||L.next!=b.right||R.prev!=b.left||L.len+R.len!=b.size)continue;
+        L.len+=R.len;R.len=0;L.next=R.next;if(R.next>=0)symbols[static_cast<std::size_t>(R.next)].prev=b.left;
+        try_add(L.prev,b.left);try_add(b.left,L.next);
     }
-    if(best[n]<=neg/2)throw std::runtime_error("SentencePiece tokenizer could not encode input");
-    struct Step{int id;std::size_t a,b;};std::vector<Step> rev;for(std::size_t q=n;q;){int id=prev_id[q];std::size_t p=prev_pos[q];if(id==-1)throw std::runtime_error("SentencePiece Viterbi backtrace failed");rev.push_back({id,p,q});q=p;}std::reverse(rev.begin(),rev.end());
-    std::vector<int> ids;for(auto st:rev){if(st.id>=0){ids.push_back(st.id);continue;}for(std::size_t i=st.a;i<st.b;++i){unsigned char b=static_cast<unsigned char>(s[i]);auto it=byte_token_id_.find(b);if(it!=byte_token_id_.end())ids.push_back(it->second);else if(unk_>=0)ids.push_back(unk_);else throw std::runtime_error("SentencePiece byte fallback token missing");}}
+    std::vector<int> ids;
+    for(int i=symbols.empty()?-1:0;i!=-1;i=symbols[static_cast<std::size_t>(i)].next){const auto&sym=symbols[static_cast<std::size_t>(i)];auto it=token_to_id_.find(s.substr(sym.off,sym.len));if(it!=token_to_id_.end()){ids.push_back(it->second);continue;}for(std::size_t j=0;j<sym.len;++j){unsigned char b=static_cast<unsigned char>(s[sym.off+j]);auto bt=byte_token_id_.find(b);if(bt!=byte_token_id_.end())ids.push_back(bt->second);else if(unk_>=0)ids.push_back(unk_);else throw std::runtime_error("SentencePiece byte fallback token missing");}}
     return ids;
 }
 
