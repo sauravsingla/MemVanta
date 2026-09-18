@@ -1,6 +1,6 @@
 model=TinyLlama-1.1B-Chat-v1.0.Q4_0.gguf
 58d7f78ad80e6745d2148dc7391740c2de761da5791c853dec9a09b1f43a1ea9  TinyLlama-1.1B-Chat-v1.0.Q4_0.gguf
-memvanta_commit=2aa4d1c7ba0f72820d0ebb40f1fc54d367099faa
+memvanta_commit=d3586ab16aad9ff93f4bc753ac31860ebf733673
 llama_cpp_ref=6503355df0eb4f65875012523263c302fe0088c1
 threads=4 prompt=128 gen=32 ctx=768 batch=32 kv=f16
 limits_mib=1536,1280,1152,1024,896,768,704,640,576,512
