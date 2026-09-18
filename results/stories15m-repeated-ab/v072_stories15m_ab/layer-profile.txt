@@ -1,13 +1,13 @@
 # MemVanta trained-model layer profile
-prefill_ms=20.9173 decode_total_ms=12.2599 sampling_ms=0.250761
-prefill_cycles_per_token=1698191.66 decode_cycles_per_token=3978546.00
-qkv_projection_ms=5.79 attention_output_projection_ms=1.94 ffn_gemm_ms=12.54 output_head_ms=6.98
-non_gemm_core_ms=5.67 (attention softmax/KV + RMSNorm + RoPE + elementwise/residual)
+prefill_ms=20.3267 decode_total_ms=12.437 sampling_ms=0.250718
+prefill_cycles_per_token=1651072.69 decode_cycles_per_token=4035928.00
+qkv_projection_ms=5.90 attention_output_projection_ms=1.99 ffn_gemm_ms=12.22 output_head_ms=6.77
+non_gemm_core_ms=5.63 (attention softmax/KV + RMSNorm + RoPE + elementwise/residual)
 layer,qkv_ms,o_proj_ms,ffn_ms,total_projection_ms,pct_kernel_ms,projection_ms_per_token
-0,1.17,0.34,2.01,3.52,12.91,0.09
-1,0.91,0.30,2.19,3.40,12.47,0.08
-2,0.88,0.30,2.13,3.31,12.13,0.08
-3,0.89,0.32,2.00,3.21,11.80,0.08
-4,1.01,0.34,2.04,3.40,12.47,0.08
-5,0.93,0.34,2.16,3.43,12.60,0.09
+0,1.21,0.31,1.87,3.39,12.62,0.08
+1,0.96,0.38,2.02,3.36,12.49,0.08
+2,0.99,0.33,2.08,3.40,12.65,0.09
+3,0.87,0.32,2.11,3.30,12.29,0.08
+4,0.93,0.30,2.02,3.26,12.11,0.08
+5,0.93,0.34,2.13,3.40,12.66,0.09
 profile_csv=v072_stories15m_ab/layer-profile.csv
