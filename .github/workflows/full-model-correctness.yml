@@ -1,0 +1,180 @@
+name: Full Model Correctness
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'include/**'
+      - 'benchmarks/eval_bench.cpp'
+      - 'tools_tokenize.cpp'
+      - 'tests/reference/**'
+      - '.github/workflows/full-model-correctness.yml'
+      - 'CMakeLists.txt'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: full-model-correctness-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  MODEL: stories15M-q4_0.gguf
+  MODEL_URL: https://huggingface.co/ggml-org/models-moved/resolve/main/tinyllamas/stories15M-q4_0.gguf?download=true
+  MODEL_SHA256: 66967fbece6dbe97886593fdbb73589584927e29119ec31f08090732d1861739
+  LLAMA_CPP_REF: 6503355df0eb4f65875012523263c302fe0088c1
+  CTX: 128
+  OMP_DYNAMIC: 'FALSE'
+  OMP_PROC_BIND: close
+  OMP_PLACES: cores
+
+jobs:
+  correctness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake ninja-build curl git python3
+
+      - name: Build and test MemVanta
+        run: |
+          cmake -S . -B build-correctness -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-correctness --target memvanta_real memvanta_eval memvanta_tokenize memvanta_tests memvanta_tokenizer_tests -j "$(nproc)"
+          ctest --test-dir build-correctness --output-on-failure
+
+      - name: Download and verify pinned TinyStories GGUF
+        run: |
+          curl -L --fail --retry 3 --retry-delay 2 "$MODEL_URL" -o "$MODEL"
+          echo "$MODEL_SHA256  $MODEL" | sha256sum -c -
+          mkdir -p full-model-correctness
+          sha256sum "$MODEL" > full-model-correctness/model.sha256
+
+      - name: Full-model greedy golden and thread determinism
+        run: |
+          set -euo pipefail
+          for t in 1 4; do
+            ./build-correctness/memvanta_real \
+              --model "$MODEL" --threads "$t" --ctx "$CTX" \
+              --temperature 0 --n 8 --prompt 'Once upon a time' \
+              > "full-model-correctness/greedy-t${t}.txt"
+            tail -n 1 "full-model-correctness/greedy-t${t}.txt" \
+              > "full-model-correctness/greedy-t${t}.continuation.txt"
+            diff -u tests/reference/stories15m-greedy.txt \
+              "full-model-correctness/greedy-t${t}.continuation.txt"
+          done
+          diff -u full-model-correctness/greedy-t1.txt full-model-correctness/greedy-t4.txt
+
+      - name: Full-model NLL and greedy-ID determinism
+        run: |
+          set -euo pipefail
+          ./build-correctness/memvanta_eval --model "$MODEL" --threads 1 --ctx "$CTX" --max-tokens 64 \
+            > full-model-correctness/eval-t1.txt
+          ./build-correctness/memvanta_eval --model "$MODEL" --threads 4 --ctx "$CTX" --max-tokens 64 \
+            > full-model-correctness/eval-t4.txt
+          python3 - <<'PY'
+          import json, math, pathlib, re
+          root = pathlib.Path('full-model-correctness')
+          def parse(path):
+              text = path.read_text()
+              m = re.search(r'tokens=(\d+) scored=(\d+) nll=([0-9.eE+-]+) avg_nll=([0-9.eE+-]+) ppl=([0-9.eE+-]+)', text)
+              g = re.search(r'^greedy_ids=(.*)$', text, re.M)
+              if not m or not g:
+                  raise SystemExit(f'unparseable eval output: {path}')
+              vals = [float(m.group(i)) for i in range(3, 6)]
+              if not all(math.isfinite(x) for x in vals):
+                  raise SystemExit(f'non-finite full-model metric: {path}')
+              ids = [int(x) for x in g.group(1).split(',') if x]
+              if not ids:
+                  raise SystemExit(f'empty greedy sequence: {path}')
+              return {
+                  'tokens': int(m.group(1)), 'scored': int(m.group(2)),
+                  'nll': vals[0], 'avg_nll': vals[1], 'ppl': vals[2],
+                  'greedy_ids': ids,
+              }
+          a = parse(root/'eval-t1.txt')
+          b = parse(root/'eval-t4.txt')
+          if a['greedy_ids'] != b['greedy_ids']:
+              raise SystemExit('greedy token IDs differ between 1-thread and 4-thread inference')
+          # Parallel floating-point evaluation is not bit-identical across thread counts.
+          # The first hosted validation observed ~6.78e-4 relative avg-NLL drift while
+          # greedy IDs remained exactly equal, so keep a strict 1e-3 (0.1%) guardrail.
+          scale = max(1.0, abs(a['avg_nll']), abs(b['avg_nll']))
+          relative_drift = abs(a['avg_nll'] - b['avg_nll']) / scale
+          tolerance = 1e-3
+          if relative_drift > tolerance:
+              raise SystemExit(f'avg_nll thread drift too large: {relative_drift} ({a["avg_nll"]} vs {b["avg_nll"]})')
+          summary = {
+              'thread_1': a,
+              'thread_4': b,
+              'greedy_ids_match': True,
+              'avg_nll_relative_drift': relative_drift,
+              'avg_nll_relative_tolerance': tolerance,
+          }
+          (root/'memvanta-determinism.json').write_text(json.dumps(summary, indent=2) + '\n')
+          print(json.dumps(summary, indent=2))
+          PY
+
+      - name: Build pinned llama.cpp reference CLI
+        run: |
+          git init llama.cpp
+          git -C llama.cpp remote add origin https://github.com/ggml-org/llama.cpp.git
+          git -C llama.cpp fetch --depth 1 origin "$LLAMA_CPP_REF"
+          git -C llama.cpp checkout --detach FETCH_HEAD
+          echo "$(git -C llama.cpp rev-parse HEAD)" > full-model-correctness/llama_cpp_commit.txt
+          cmake -S llama.cpp -B llama.cpp/build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DGGML_CUDA=OFF \
+            -DGGML_METAL=OFF \
+            -DLLAMA_CURL=OFF
+          cmake --build llama.cpp/build --target llama-cli -j "$(nproc)"
+
+      - name: Record external llama.cpp greedy reference
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=15s 180 \
+            ./llama.cpp/build/bin/llama-cli \
+              -m "$MODEL" -ngl 0 -t 4 -c "$CTX" \
+              -p 'Once upon a time' -n 8 --temp 0 --seed 42 \
+              --no-conversation --single-turn --no-display-prompt --no-show-timings \
+              < /dev/null \
+              > full-model-correctness/llama-reference.txt \
+              2> full-model-correctness/llama-reference.stderr.txt
+          python3 - <<'PY'
+          import json, pathlib
+          root = pathlib.Path('full-model-correctness')
+          mem = (root/'greedy-t4.continuation.txt').read_text().strip()
+          raw = (root/'llama-reference.txt').read_text(errors='replace')
+          marker = '> Once upon a time'
+          ref = raw
+          if marker in ref:
+              ref = ref.split(marker, 1)[1]
+          if 'Exiting...' in ref:
+              ref = ref.split('Exiting...', 1)[0]
+          ref = ref.strip()
+          status = {
+              'model_sha256': '66967fbece6dbe97886593fdbb73589584927e29119ec31f08090732d1861739',
+              'llama_cpp_ref': '6503355df0eb4f65875012523263c302fe0088c1',
+              'memvanta_continuation': mem,
+              'llama_cpp_continuation': ref,
+              'decoded_text_equal': mem == ref,
+              'note': 'decoded-text equality is recorded as evidence; the blocking gates above are pinned MemVanta full-model regression and cross-thread determinism until numerical/token parity is established',
+          }
+          (root/'external-reference-status.json').write_text(json.dumps(status, indent=2) + '\n')
+          print(json.dumps(status, indent=2))
+          PY
+
+      - name: Upload correctness evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: memvanta-full-model-correctness
+          path: full-model-correctness/**
+          if-no-files-found: error
+          retention-days: 30

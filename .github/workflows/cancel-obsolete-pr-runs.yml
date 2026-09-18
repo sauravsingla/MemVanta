@@ -1,0 +1,69 @@
+name: Cancel Obsolete PR Runs
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, reopened, synchronize]
+
+permissions:
+  actions: write
+  contents: read
+
+# This workflow is intentionally the only central cancellation hook. It avoids
+# copying concurrency blocks into every benchmark workflow while preserving all
+# current-head evidence and every non-PR/push run.
+concurrency:
+  group: cancel-obsolete-pr-runs-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  cancel-obsolete:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Cancel queued or running jobs from older commits on this PR branch
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const branch = context.payload.pull_request.head.ref;
+            const currentSha = context.payload.pull_request.head.sha;
+            const currentRunId = context.runId;
+            const statuses = new Set(['queued', 'in_progress', 'waiting', 'requested', 'pending']);
+            let cancelled = 0;
+
+            for (let page = 1; page <= 10; page++) {
+              const { data } = await github.rest.actions.listWorkflowRunsForRepo({
+                owner,
+                repo,
+                branch,
+                event: 'pull_request',
+                per_page: 100,
+                page,
+              });
+              if (data.workflow_runs.length === 0) break;
+
+              for (const run of data.workflow_runs) {
+                if (run.id === currentRunId || run.head_sha === currentSha) continue;
+                if (!statuses.has(run.status)) continue;
+                core.info(`Cancelling stale run ${run.id} (${run.name}) at ${run.head_sha}`);
+                try {
+                  await github.rest.actions.cancelWorkflowRun({ owner, repo, run_id: run.id });
+                  cancelled++;
+                } catch (error) {
+                  // A run may finish between listing and cancellation. Only ignore
+                  // that normal race; surface permission/API failures.
+                  if (error.status === 409) {
+                    core.info(`Run ${run.id} already completed while cancelling`);
+                  } else {
+                    throw error;
+                  }
+                }
+              }
+              if (data.workflow_runs.length < 100) break;
+            }
+            core.summary.addHeading('Obsolete PR run cleanup');
+            core.summary.addRaw(`Cancelled ${cancelled} stale queued/running run(s) for ${branch}.`);
+            await core.summary.write();
