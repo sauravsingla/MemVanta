@@ -2,7 +2,7 @@
   {
     "build_commit": "6503355",
     "build_number": 1,
-    "cpu_info": "Intel(R) Xeon(R) Platinum 8370C CPU @ 2.80GHz",
+    "cpu_info": "AMD EPYC 7763 64-Core Processor",
     "gpu_info": "",
     "backends": "CPU",
     "model_filename": "openllama-3b-v2-q4_0.gguf",
@@ -35,18 +35,18 @@
     "n_prompt": 512,
     "n_gen": 0,
     "n_depth": 0,
-    "test_time": "2026-09-18T13:24:48Z",
-    "avg_ns": 17742326885,
-    "stddev_ns": 20378733,
-    "avg_ts": 28.857576,
-    "stddev_ts": 0.033184,
-    "samples_ns": [ 17750160102, 17740758911, 17707743617, 17756841973, 17756129826 ],
-    "samples_ts": [ 28.8448, 28.8601, 28.9139, 28.834, 28.8351 ]
+    "test_time": "2026-09-18T14:28:04Z",
+    "avg_ns": 20942078642,
+    "stddev_ns": 24702019,
+    "avg_ts": 24.448412,
+    "stddev_ts": 0.028847,
+    "samples_ns": [ 20961999887, 20929139828, 20943546769, 20968172871, 20907533857 ],
+    "samples_ts": [ 24.4252, 24.4635, 24.4467, 24.418, 24.4888 ]
   },
   {
     "build_commit": "6503355",
     "build_number": 1,
-    "cpu_info": "Intel(R) Xeon(R) Platinum 8370C CPU @ 2.80GHz",
+    "cpu_info": "AMD EPYC 7763 64-Core Processor",
     "gpu_info": "",
     "backends": "CPU",
     "model_filename": "openllama-3b-v2-q4_0.gguf",
@@ -79,12 +79,12 @@
     "n_prompt": 0,
     "n_gen": 128,
     "n_depth": 0,
-    "test_time": "2026-09-18T13:26:35Z",
-    "avg_ns": 10736993720,
-    "stddev_ns": 16437623,
-    "avg_ts": 11.921423,
-    "stddev_ts": 0.018262,
-    "samples_ns": [ 10741195966, 10726753884, 10713928686, 10750368152, 10752721913 ],
-    "samples_ts": [ 11.9167, 11.9328, 11.9471, 11.9066, 11.904 ]
+    "test_time": "2026-09-18T14:30:10Z",
+    "avg_ns": 8145897972,
+    "stddev_ns": 26396713,
+    "avg_ts": 15.713562,
+    "stddev_ts": 0.050875,
+    "samples_ns": [ 8122010850, 8167238279, 8179547276, 8138866363, 8121827093 ],
+    "samples_ts": [ 15.7596, 15.6724, 15.6488, 15.727, 15.76 ]
   }
 ]

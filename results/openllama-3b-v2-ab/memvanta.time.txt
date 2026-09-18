@@ -1,18 +1,18 @@
 	Command being timed: "timeout --signal=TERM --kill-after=30s 5400 ./build-threeb/memvanta_real_bench --model openllama-3b-v2-q4_0.gguf --threads 4 --ctx 768 --prompt 512 --gen 128 --batch 32 --kv f16 --warmup 1 --reps 5 --no-client --csv threeb-model-ab/memvanta.csv"
-	User time (seconds): 2579.17
-	System time (seconds): 1.31
-	Percent of CPU this job got: 250%
-	Elapsed (wall clock) time (h:mm:ss or m:ss): 17:10.66
+	User time (seconds): 2265.10
+	System time (seconds): 1.27
+	Percent of CPU this job got: 245%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 15:22.95
 	Average shared text size (kbytes): 0
 	Average unshared data size (kbytes): 0
 	Average stack size (kbytes): 0
 	Average total size (kbytes): 0
-	Maximum resident set size (kbytes): 2120436
+	Maximum resident set size (kbytes): 2120468
 	Average resident set size (kbytes): 0
 	Major (requiring I/O) page faults: 0
-	Minor (reclaiming a frame) page faults: 159724
-	Voluntary context switches: 159914
-	Involuntary context switches: 589252
+	Minor (reclaiming a frame) page faults: 159866
+	Voluntary context switches: 160365
+	Involuntary context switches: 504705
 	Swaps: 0
 	File system inputs: 0
 	File system outputs: 16
