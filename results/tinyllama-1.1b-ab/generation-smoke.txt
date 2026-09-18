@@ -1,2 +1,2 @@
-[MemVanta real GGUF] prompt tokens=11 model=models
+[MemVanta real GGUF] prompt tokens=12 model=models
  [control_11]
