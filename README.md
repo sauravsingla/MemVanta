@@ -1,16 +1,19 @@
 # MemVanta
 
+**Run larger local LLMs with less RAM.**
+
+MemVanta is an experimental C++20 CPU runtime for quantized Llama-family GGUF models.
+
+> **47.50% lower peak RSS** in the published OpenLLaMA 7B v2 Q4_0 test:  
+> **~3.80 GiB with MemVanta vs ~7.24 GiB with pinned `llama.cpp`.**
+
+[Reproduce the result](#-reproduce-it) · [View evidence](results/openllama-7b-v2-ab/) · [Contribute](CONTRIBUTING.md)
+
 [![Build](https://github.com/sauravsingla/MemVanta/actions/workflows/ci.yml/badge.svg)](https://github.com/sauravsingla/MemVanta/actions/workflows/ci.yml)
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-blue.svg)](CMakeLists.txt)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
-**Memory-first local LLM inference on CPU.**
-
-Run quantized Llama-family GGUF models with a focus on **lower resident memory**, not maximum tokens/sec.
-
-> **OpenLLaMA 7B v2 Q4_0: ~3.80 GiB peak RSS with MemVanta vs ~7.24 GiB with pinned `llama.cpp` — 47.50% lower in the published test.**
-
-`C++20` · `CPU-only` · `GGUF` · `Q4_0 / Q6_K / Q8_0` · `mmap` · `paged KV cache` · `AVX2/FMA`
+MemVanta focuses on **memory efficiency**. `llama.cpp` is substantially faster in the same 7B test.
 
 ## The result
 
