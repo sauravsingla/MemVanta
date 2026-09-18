@@ -4,14 +4,6 @@
 
 MemVanta is an experimental C++20 CPU runtime for quantized Llama-family GGUF models, focused on **memory-efficient inference**.
 
-**Published 7B result:** ~3.80 GiB peak RSS with MemVanta vs ~7.24 GiB with pinned `llama.cpp` — **47.50% lower**.
-
-[Reproduce](#-reproduce-it) · [Evidence](results/openllama-7b-v2-ab/) · [Contribute](CONTRIBUTING.md)
-
-[![Build](https://github.com/sauravsingla/MemVanta/actions/workflows/ci.yml/badge.svg)](https://github.com/sauravsingla/MemVanta/actions/workflows/ci.yml)
-[![C++20](https://img.shields.io/badge/C%2B%2B-20-blue.svg)](CMakeLists.txt)
-[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
-
 ## Benchmark
 
 | | MemVanta | pinned `llama.cpp` |
