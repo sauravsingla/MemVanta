@@ -16,6 +16,6 @@ llama,704,0,0,success,[not set],success
 memvanta,640,0,0,success,[not set],success
 llama,640,0,0,success,[not set],success
 memvanta,576,0,0,success,[not set],success
-llama,576,0,0,success,[not set],success
+llama,576,1,9,oom,603979776,oom-kill
 memvanta,512,0,0,success,[not set],success
 llama,512,1,9,oom,536870912,oom-kill

@@ -95,7 +95,7 @@
     ]
   },
   "llama": {
-    "lowest_success_mib": 576,
+    "lowest_success_mib": 640,
     "runs": [
       {
         "runtime": "llama",
@@ -172,11 +172,11 @@
       {
         "runtime": "llama",
         "limit_mib": "576",
-        "launcher_exit": "0",
-        "exec_exit": "0",
-        "result": "success",
-        "memory_peak_bytes": "[not set]",
-        "service_result": "success"
+        "launcher_exit": "1",
+        "exec_exit": "9",
+        "result": "oom",
+        "memory_peak_bytes": "603979776",
+        "service_result": "oom-kill"
       },
       {
         "runtime": "llama",
@@ -189,6 +189,6 @@
       }
     ]
   },
-  "lowest_success_difference_mib": 64,
-  "memvanta_boundary_reduction_pct": 11.111111111111116
+  "lowest_success_difference_mib": 128,
+  "memvanta_boundary_reduction_pct": 19.999999999999996
 }
