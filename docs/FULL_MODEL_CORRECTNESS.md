@@ -2,9 +2,11 @@
 
 MemVanta treats real-model correctness as a separate requirement from throughput and memory benchmarks.
 
+The `Full Model Correctness` workflow runs for relevant pull-request changes and for relevant source/configuration pushes to `main`. Result-only benchmark publication under `results/**` is intentionally outside its path filter, so evidence publishing does not repeatedly trigger the expensive full-model job.
+
 ## Blocking checks
 
-The `Full Model Correctness` workflow downloads the exact pinned TinyStories Llama GGUF used by the existing benchmark suite and verifies its SHA-256 before inference. It then requires:
+The workflow downloads the exact pinned TinyStories Llama GGUF used by the existing benchmark suite and verifies its SHA-256 before inference. It then requires:
 
 - the pinned greedy continuation in `tests/reference/stories15m-greedy.txt` to remain unchanged for both 1-thread and 4-thread execution;
 - the complete greedy output to be identical between 1-thread and 4-thread execution;
@@ -18,9 +20,20 @@ The golden continuation is a **MemVanta regression fixture**, not a claim that M
 
 ## External reference evidence
 
-The same workflow builds the repository's pinned llama.cpp revision and runs deterministic greedy generation against the exact same GGUF. Its decoded continuation and the MemVanta continuation are written to `external-reference-status.json` with an explicit equality flag.
+The same workflow builds the repository's pinned llama.cpp revision with nonessential tests, examples, and web UI disabled. It builds both `llama-cli` and `llama-tokenize`.
 
-Decoded-text equality is currently recorded as evidence rather than asserted as a blocking gate. Different decoded text can arise from a genuine model-math/tokenizer bug, but also from runtime-specific tokenization or CLI semantics. A future blocking cross-runtime parity gate should compare token IDs or logits from explicitly aligned prompts/tokenization and document numerical tolerances rather than silently assuming two CLI text streams are equivalent.
+Before comparing generated text, the workflow records exact prompt-token IDs for `Once upon a time` from:
+
+- MemVanta with BOS requested;
+- MemVanta without BOS;
+- llama.cpp with the model's default BOS policy; and
+- llama.cpp with BOS disabled.
+
+Those arrays and equality flags are stored in `tokenizer-parity.json`. This makes a cross-runtime generation mismatch diagnosable as a tokenizer/BOS issue versus a later model-math divergence. The initial tokenizer comparison is evidence-producing rather than blocking so that the pinned model's exact semantics can be established without hiding a discrepancy; once aligned semantics are demonstrated, the matching configuration should become a blocking parity gate.
+
+The workflow also runs deterministic greedy generation against the same GGUF and writes the llama.cpp and MemVanta decoded continuations to `external-reference-status.json` with an explicit equality flag.
+
+Decoded-text equality remains evidence rather than a blocking assertion until prompt token IDs and numerical/model semantics are explicitly aligned. A blocking cross-runtime model gate should then compare aligned token IDs and, where practical, logits/top-k values with documented numerical tolerances rather than assuming two CLI text streams are equivalent.
 
 ## Benchmark relationship
 
