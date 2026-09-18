@@ -4,7 +4,7 @@
 
 MemVanta is an experimental C++20 runtime for **low-memory CPU LLM inference** with quantized Llama-family **GGUF models**. It explores mmap-backed model access, quantized CPU kernels, and paged KV cache for memory-constrained local AI.
 
-## Try MemVanta
+## Quick Start
 
 Build and test on Linux or macOS:
 
@@ -22,7 +22,7 @@ To reproduce the published memory measurements against pinned `llama.cpp`, follo
 
 | | MemVanta | pinned `llama.cpp` |
 |---|---:|---:|
-| 7B peak RSS | **~3.80 GiB** | ~7.24 GiB |
+| OpenLLaMA 7B v2 Q4_0 peak RSS | **~3.80 GiB** | ~7.24 GiB |
 | Prompt processing | 3.15 ± 0.04 tok/s | **45.82 ± 0.96 tok/s** |
 | Token generation | 1.52 ± 0.02 tok/s | **7.76 ± 0.09 tok/s** |
 | 3584 MiB memory ceiling | **Completed** | OOM-killed |
