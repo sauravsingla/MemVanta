@@ -1,2 +1,2 @@
-[MemVanta real GGUF] prompt tokens=8 model=llama
-, and day, the sunny.
+[MemVanta real GGUF] prompt tokens=5 model=llama
+, there was a big bear named Ben
