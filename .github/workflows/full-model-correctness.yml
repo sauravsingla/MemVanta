@@ -11,6 +11,16 @@ on:
       - 'tests/reference/**'
       - '.github/workflows/full-model-correctness.yml'
       - 'CMakeLists.txt'
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'include/**'
+      - 'benchmarks/eval_bench.cpp'
+      - 'tools_tokenize.cpp'
+      - 'tests/reference/**'
+      - '.github/workflows/full-model-correctness.yml'
+      - 'CMakeLists.txt'
   workflow_dispatch:
 
 permissions:
@@ -121,7 +131,7 @@ jobs:
           print(json.dumps(summary, indent=2))
           PY
 
-      - name: Build pinned llama.cpp reference CLI
+      - name: Build pinned llama.cpp reference tools
         run: |
           git init llama.cpp
           git -C llama.cpp remote add origin https://github.com/ggml-org/llama.cpp.git
@@ -132,8 +142,56 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DGGML_CUDA=OFF \
             -DGGML_METAL=OFF \
-            -DLLAMA_CURL=OFF
-          cmake --build llama.cpp/build --target llama-cli -j "$(nproc)"
+            -DLLAMA_CURL=OFF \
+            -DLLAMA_BUILD_TESTS=OFF \
+            -DLLAMA_BUILD_EXAMPLES=OFF \
+            -DLLAMA_BUILD_UI=OFF
+          cmake --build llama.cpp/build --target llama-cli llama-tokenize -j "$(nproc)"
+
+      - name: Record tokenizer ID parity
+        run: |
+          set -euo pipefail
+          ./build-correctness/memvanta_tokenize "$MODEL" 'Once upon a time' --bos \
+            > full-model-correctness/memvanta-tokenize-bos.txt
+          ./build-correctness/memvanta_tokenize "$MODEL" 'Once upon a time' \
+            > full-model-correctness/memvanta-tokenize-no-bos.txt
+          ./llama.cpp/build/bin/llama-tokenize -m "$MODEL" -p 'Once upon a time' --ids \
+            > full-model-correctness/llama-tokenize-default.txt \
+            2> full-model-correctness/llama-tokenize-default.stderr.txt
+          ./llama.cpp/build/bin/llama-tokenize -m "$MODEL" -p 'Once upon a time' --ids --no-bos \
+            > full-model-correctness/llama-tokenize-no-bos.txt \
+            2> full-model-correctness/llama-tokenize-no-bos.stderr.txt
+          python3 - <<'PY'
+          import json, pathlib, re
+          root = pathlib.Path('full-model-correctness')
+          def mem_ids(name):
+              text = (root/name).read_text(errors='replace')
+              m = re.search(r'^ids=(.*)$', text, re.M)
+              if not m:
+                  raise SystemExit(f'unparseable MemVanta tokenizer output: {name}')
+              return [int(x) for x in m.group(1).split(',') if x.strip()]
+          def llama_ids(name):
+              text = (root/name).read_text(errors='replace')
+              m = re.search(r'\[\s*([-0-9,\s]*)\s*\]', text)
+              if not m:
+                  raise SystemExit(f'unparseable llama.cpp tokenizer output: {name}: {text!r}')
+              return [int(x.strip()) for x in m.group(1).split(',') if x.strip()]
+          mb = mem_ids('memvanta-tokenize-bos.txt')
+          mn = mem_ids('memvanta-tokenize-no-bos.txt')
+          ld = llama_ids('llama-tokenize-default.txt')
+          ln = llama_ids('llama-tokenize-no-bos.txt')
+          status = {
+              'prompt': 'Once upon a time',
+              'memvanta_with_bos': mb,
+              'memvanta_without_bos': mn,
+              'llama_cpp_default': ld,
+              'llama_cpp_no_bos': ln,
+              'memvanta_bos_equals_llama_default': mb == ld,
+              'memvanta_no_bos_equals_llama_no_bos': mn == ln,
+          }
+          (root/'tokenizer-parity.json').write_text(json.dumps(status, indent=2) + '\n')
+          print(json.dumps(status, indent=2))
+          PY
 
       - name: Record external llama.cpp greedy reference
         run: |
@@ -164,7 +222,7 @@ jobs:
               'memvanta_continuation': mem,
               'llama_cpp_continuation': ref,
               'decoded_text_equal': mem == ref,
-              'note': 'decoded-text equality is recorded as evidence; the blocking gates above are pinned MemVanta full-model regression and cross-thread determinism until numerical/token parity is established',
+              'note': 'decoded-text equality remains evidence-only until aligned token and numerical parity are established',
           }
           (root/'external-reference-status.json').write_text(json.dumps(status, indent=2) + '\n')
           print(json.dumps(status, indent=2))
