@@ -1,18 +1,18 @@
 	Command being timed: "./build-medium/memvanta_real --model SmolLM2-360M.Q4_0.gguf --threads 4 --ctx 128 --temperature 0 --n 8 --prompt The capital of France is"
-	User time (seconds): 1.34
-	System time (seconds): 0.03
-	Percent of CPU this job got: 266%
+	User time (seconds): 1.37
+	System time (seconds): 0.02
+	Percent of CPU this job got: 264%
 	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:00.52
 	Average shared text size (kbytes): 0
 	Average unshared data size (kbytes): 0
 	Average stack size (kbytes): 0
 	Average total size (kbytes): 0
-	Maximum resident set size (kbytes): 249500
+	Maximum resident set size (kbytes): 249632
 	Average resident set size (kbytes): 0
 	Major (requiring I/O) page faults: 0
 	Minor (reclaiming a frame) page faults: 9142
-	Voluntary context switches: 1641
-	Involuntary context switches: 249
+	Voluntary context switches: 1673
+	Involuntary context switches: 227
 	Swaps: 0
 	File system inputs: 0
 	File system outputs: 8

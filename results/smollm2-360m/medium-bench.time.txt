@@ -1,18 +1,18 @@
 	Command being timed: "./build-medium/memvanta_real_bench --model SmolLM2-360M.Q4_0.gguf --threads 4 --ctx 128 --batch 16 --kv f16 --prompt 32 --gen 16 --reps 1 --warmup 0"
-	User time (seconds): 9.64
-	System time (seconds): 0.16
-	Percent of CPU this job got: 199%
-	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:04.91
+	User time (seconds): 11.21
+	System time (seconds): 0.15
+	Percent of CPU this job got: 198%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:05.73
 	Average shared text size (kbytes): 0
 	Average unshared data size (kbytes): 0
 	Average stack size (kbytes): 0
 	Average total size (kbytes): 0
-	Maximum resident set size (kbytes): 250600
+	Maximum resident set size (kbytes): 250268
 	Average resident set size (kbytes): 0
 	Major (requiring I/O) page faults: 0
-	Minor (reclaiming a frame) page faults: 9316
-	Voluntary context switches: 27802
-	Involuntary context switches: 2514
+	Minor (reclaiming a frame) page faults: 9311
+	Voluntary context switches: 28241
+	Involuntary context switches: 1717
 	Swaps: 0
 	File system inputs: 0
 	File system outputs: 8
