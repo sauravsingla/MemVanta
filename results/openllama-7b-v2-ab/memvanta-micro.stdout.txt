@@ -1,5 +1,5 @@
 | model | size | params | backend | threads | test | t/s |
 |---|---:|---:|---|---:|---|---:|
-| \hf | 3647.87 MiB | 6738.42 M | MemVanta CPU | 4 | pp32 | 2.77 ± 0.00 |
+| \hf | 3647.87 MiB | 6738.42 M | MemVanta CPU | 4 | pp32 | 2.55 ± 0.00 |
 | \hf | 3647.87 MiB | 6738.42 M | MemVanta CPU | 4 | tg16 | 1.40 ± 0.00 |
-load=11.53 ms peak_rss=3667.28 MiB kv_alloc=64.00 MiB batch=16 kv=f16
+load=11.91 ms peak_rss=3667.23 MiB kv_alloc=64.00 MiB batch=16 kv=f16
