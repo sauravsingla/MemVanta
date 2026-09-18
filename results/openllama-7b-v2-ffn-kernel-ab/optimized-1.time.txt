@@ -1,18 +1,18 @@
 	Command being timed: "./optimized/build/memvanta_profile --model openlm-research-open_llama_7b_v2-Q4_0.gguf --threads 4 --ctx 256 --prompt 128 --gen 16 --batch 32 --csv sevenb-ffn-kernel-ab/optimized-1.csv"
-	User time (seconds): 142.22
-	System time (seconds): 0.48
-	Percent of CPU this job got: 240%
-	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:59.23
+	User time (seconds): 109.34
+	System time (seconds): 0.36
+	Percent of CPU this job got: 241%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:45.43
 	Average shared text size (kbytes): 0
 	Average unshared data size (kbytes): 0
 	Average stack size (kbytes): 0
 	Average total size (kbytes): 0
-	Maximum resident set size (kbytes): 3810708
+	Maximum resident set size (kbytes): 3810592
 	Average resident set size (kbytes): 0
 	Major (requiring I/O) page faults: 0
-	Minor (reclaiming a frame) page faults: 95995
-	Voluntary context switches: 6265
-	Involuntary context switches: 32513
+	Minor (reclaiming a frame) page faults: 95997
+	Voluntary context switches: 6625
+	Involuntary context switches: 26300
 	Swaps: 0
 	File system inputs: 0
 	File system outputs: 64
