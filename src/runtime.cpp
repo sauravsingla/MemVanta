@@ -2,10 +2,9 @@
 #include "memvanta/common.hpp"
 #include <algorithm>
 #include <chrono>
-#include <fstream>
 #include <limits>
 #include <memory>
-#include <string>
+#include <sys/resource.h>
 #include <unordered_set>
 namespace memvanta {
 Runtime::Runtime(const TensorStore&s,RunConfig c):store_(s),cfg_(c),cache_(c.cache_bytes),prefetcher_(s,cache_){
@@ -16,7 +15,15 @@ Runtime::Runtime(const TensorStore&s,RunConfig c):store_(s),cfg_(c),cache_(c.cac
     cfg_.prefetch_depth=std::clamp(cfg_.prefetch_depth,cfg_.adaptive_min_depth,cfg_.adaptive_max_depth);
   }
 }
-std::uint64_t Runtime::rss_kb(){ std::ifstream f("/proc/self/status"); std::string k; while(f>>k){ if(k=="VmHWM:"){ std::uint64_t v; std::string u; f>>v>>u; return v;} std::string rest; std::getline(f,rest);} return 0; }
+std::uint64_t Runtime::rss_kb(){
+  rusage r{};
+  if(getrusage(RUSAGE_SELF,&r)!=0) return 0;
+#if defined(__APPLE__)
+  return static_cast<std::uint64_t>(r.ru_maxrss/1024);
+#else
+  return static_cast<std::uint64_t>(r.ru_maxrss);
+#endif
+}
 RunStats Runtime::run_stream(){
   auto start=std::chrono::steady_clock::now();
   std::uint64_t checksum=1469598103934665603ull,total=0;
