@@ -2,10 +2,10 @@
 
 Same GGUF, CPU-only, 4 threads, pp512/tg128, context 768, batch 32, F16 KV, 5 repetitions.
 
-- MemVanta pp: 19.46 ± 0.19 tok/s
-- llama.cpp pp: 97.42 ± 2.80 tok/s
-- MemVanta tg: 5.60 ± 0.09 tok/s
-- llama.cpp tg: 47.78 ± 0.35 tok/s
-- MemVanta peak RSS: 644220 KiB
-- llama.cpp peak RSS: 1226148 KiB
-- MemVanta RSS reduction: 47.46%
+- MemVanta pp: 16.73 ± 0.17 tok/s
+- llama.cpp pp: 78.92 ± 0.33 tok/s
+- MemVanta tg: 5.78 ± 0.02 tok/s
+- llama.cpp tg: 48.68 ± 0.06 tok/s
+- MemVanta peak RSS: 644564 KiB
+- llama.cpp peak RSS: 1190192 KiB
+- MemVanta RSS reduction: 45.84%

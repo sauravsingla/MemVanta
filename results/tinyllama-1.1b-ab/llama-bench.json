@@ -2,7 +2,7 @@
   {
     "build_commit": "6503355",
     "build_number": 1,
-    "cpu_info": "Intel(R) Xeon(R) 6973P-C",
+    "cpu_info": "AMD EPYC 7763 64-Core Processor",
     "gpu_info": "",
     "backends": "CPU",
     "model_filename": "TinyLlama-1.1B-Chat-v1.0.Q4_0.gguf",
@@ -35,18 +35,18 @@
     "n_prompt": 512,
     "n_gen": 0,
     "n_depth": 0,
-    "test_time": "2026-09-18T08:10:52Z",
-    "avg_ns": 5259190621,
-    "stddev_ns": 150787159,
-    "avg_ts": 97.417564,
-    "stddev_ts": 2.798969,
-    "samples_ns": [ 5181656530, 5058579962, 5454158789, 5260659603, 5340898223 ],
-    "samples_ts": [ 98.8101, 101.214, 93.8733, 97.3262, 95.864 ]
+    "test_time": "2026-09-18T13:12:13Z",
+    "avg_ns": 6487565948,
+    "stddev_ns": 26930623,
+    "avg_ts": 78.921285,
+    "stddev_ts": 0.326964,
+    "samples_ns": [ 6503036143, 6478385087, 6461302933, 6526605956, 6468499623 ],
+    "samples_ts": [ 78.7325, 79.032, 79.241, 78.4481, 79.1528 ]
   },
   {
     "build_commit": "6503355",
     "build_number": 1,
-    "cpu_info": "Intel(R) Xeon(R) 6973P-C",
+    "cpu_info": "AMD EPYC 7763 64-Core Processor",
     "gpu_info": "",
     "backends": "CPU",
     "model_filename": "TinyLlama-1.1B-Chat-v1.0.Q4_0.gguf",
@@ -79,12 +79,12 @@
     "n_prompt": 0,
     "n_gen": 128,
     "n_depth": 0,
-    "test_time": "2026-09-18T08:11:23Z",
-    "avg_ns": 2678881279,
-    "stddev_ns": 19557084,
-    "avg_ts": 47.783162,
-    "stddev_ts": 0.346320,
-    "samples_ns": [ 2711937254, 2678775064, 2663581925, 2665190408, 2674921748 ],
-    "samples_ts": [ 47.1987, 47.783, 48.0556, 48.0266, 47.8519 ]
+    "test_time": "2026-09-18T13:12:51Z",
+    "avg_ns": 2629338400,
+    "stddev_ns": 3454744,
+    "avg_ts": 48.681515,
+    "stddev_ts": 0.063923,
+    "samples_ns": [ 2629253596, 2625691577, 2630950432, 2634243228, 2626553171 ],
+    "samples_ts": [ 48.683, 48.7491, 48.6516, 48.5908, 48.7331 ]
   }
 ]
