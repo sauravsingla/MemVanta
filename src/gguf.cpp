@@ -27,6 +27,13 @@ private:
 };
 
 std::uint64_t checked_mul(std::uint64_t a,std::uint64_t b,const char* what){if(a&&b>std::numeric_limits<std::uint64_t>::max()/a)throw std::runtime_error(what);return a*b;}
+std::uint64_t quant_row_block(GgmlType type){
+    switch(type){
+        case GgmlType::Q4_0: case GgmlType::Q4_1: case GgmlType::Q5_0: case GgmlType::Q5_1: case GgmlType::Q8_0: return 32;
+        case GgmlType::Q2_K: case GgmlType::Q3_K: case GgmlType::Q4_K: case GgmlType::Q5_K: case GgmlType::Q6_K: return 256;
+        default: return 1;
+    }
+}
 
 std::uint64_t as_unsigned(const GgufValue& v) {
     if (auto p=std::get_if<std::uint64_t>(&v.data)) return *p;
@@ -150,9 +157,9 @@ GgufFile::GgufFile(const std::string& path): file_(path) {
     std::uint64_t align=32; if(auto it=metadata_.find("general.alignment");it!=metadata_.end()) align=as_unsigned(it->second); if(!align || (align&(align-1))) throw std::runtime_error("invalid GGUF alignment");
     if(r.pos()>std::numeric_limits<std::uint64_t>::max()-(align-1)) throw std::runtime_error("GGUF data offset overflow");
     data_offset_=(r.pos()+align-1)&~(align-1);
-    if(data_offset_>file_.size()) throw std::runtime_error("GGUF data section starts beyond file bounds");
+    if(nt && data_offset_>file_.size()) throw std::runtime_error("GGUF data section starts beyond file bounds");
     tensors_.reserve(tmp.size());
-    for(auto&t:tmp){ GgufTensor x; x.name=std::move(t.name); x.dims=std::move(t.dims); x.type=t.type; if(t.rel>std::numeric_limits<std::uint64_t>::max()-data_offset_) throw std::runtime_error("tensor offset overflow: "+x.name); x.offset=data_offset_+t.rel; x.nbytes=ggml_tensor_nbytes(x.type,x.elements()); if(x.offset>file_.size()||x.nbytes>file_.size()-x.offset) throw std::runtime_error("tensor out of file bounds: "+x.name); if(tensor_index_.contains(x.name)) throw std::runtime_error("duplicate GGUF tensor: "+x.name); tensor_index_[x.name]=tensors_.size(); tensors_.push_back(std::move(x)); }
+    for(auto&t:tmp){ GgufTensor x; x.name=std::move(t.name); x.dims=std::move(t.dims); x.type=t.type; const auto qk=quant_row_block(x.type); if(qk>1&&x.ne(0)%qk)throw std::runtime_error("quantized tensor row is not block aligned: "+x.name); if(t.rel>std::numeric_limits<std::uint64_t>::max()-data_offset_) throw std::runtime_error("tensor offset overflow: "+x.name); x.offset=data_offset_+t.rel; x.nbytes=ggml_tensor_nbytes(x.type,x.elements()); if(x.offset>file_.size()||x.nbytes>file_.size()-x.offset) throw std::runtime_error("tensor out of file bounds: "+x.name); if(tensor_index_.contains(x.name)) throw std::runtime_error("duplicate GGUF tensor: "+x.name); tensor_index_[x.name]=tensors_.size(); tensors_.push_back(std::move(x)); }
 }
 const GgufTensor& GgufFile::tensor(const std::string& name) const { auto it=tensor_index_.find(name); if(it==tensor_index_.end()) throw std::runtime_error("missing tensor: "+name); return tensors_[it->second]; }
 bool GgufFile::has_tensor(const std::string& name) const { return tensor_index_.contains(name); }
