@@ -40,13 +40,22 @@ A separate Linux cgroup-v2 `MemoryMax` experiment, with swap disabled and the sa
 | Lowest confirmed successful ceiling | **160 MiB** | 3648 MiB |
 | Confirmed OOM ceiling | **128 MiB** | 3616 MiB |
 | Confirmed-success ceiling difference | **3488 MiB lower** | baseline |
-| Lower confirmed-success ceiling | **95.61%** | baseline |
+| Confirmed-success ceiling reduction vs pinned `llama.cpp` | **95.61%** | baseline |
 
 Each final success/OOM edge was repeated twice. This is a **cgroup execution-under-pressure boundary on the tested hosted runner**, not an exact physical-RAM minimum and not a replacement for the peak-RSS/throughput benchmark above.
 
+At each runtime's lowest confirmed successful ceiling, the two confirmation runs averaged approximately:
+
+| Pressure-workload throughput | MemVanta @ 160 MiB | pinned `llama.cpp` @ 3648 MiB |
+|---|---:|---:|
+| Prompt processing (pp128) | 6.17 tok/s | **19.21 tok/s** |
+| Token generation (tg32) | 1.39 tok/s | **6.10 tok/s** |
+
+These pressure-run throughput values use the pp128/tg32 boundary workload and are not directly comparable to the canonical pp512/tg128 throughput table above.
+
 [Raw A/B evidence](results/openllama-7b-v2-ab/) · [Separate memory-pressure test](results/openllama-7b-v2-ram-constrained/) · [Methodology](docs/MEMORY_BENCHMARKING.md)
 
-`llama.cpp` is substantially faster in this test; MemVanta focuses on the **memory-efficiency side of CPU inference**.
+`llama.cpp` is substantially faster in these tests; MemVanta focuses on the **memory-efficiency side of CPU inference**.
 
 ## Low-memory CPU LLM inference
 
