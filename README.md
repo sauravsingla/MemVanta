@@ -20,14 +20,18 @@ To reproduce the published memory measurements against pinned `llama.cpp`, follo
 
 ## Benchmark: MemVanta vs llama.cpp
 
-| | MemVanta | pinned `llama.cpp` |
+<!-- BEGIN_CANONICAL_7B_BENCHMARK -->
+| Metric | MemVanta | pinned `llama.cpp` |
 |---|---:|---:|
-| OpenLLaMA 7B v2 Q4_0 peak RSS | **~3.80 GiB** | ~7.24 GiB |
-| Prompt processing | 3.15 ± 0.04 tok/s | **45.82 ± 0.96 tok/s** |
-| Token generation | 1.52 ± 0.02 tok/s | **7.76 ± 0.09 tok/s** |
-| 3584 MiB memory ceiling | **Completed** | OOM-killed |
+| OpenLLaMA 7B v2 Q4_0 peak RSS | **3.80 GiB** | 7.24 GiB |
+| Prompt processing | 2.73 ± 0.02 tok/s | **12.84 ± 0.01 tok/s** |
+| Token generation | 1.38 ± 0.00 tok/s | **8.13 ± 0.01 tok/s** |
+| Peak-RSS reduction | **47.52%** | baseline |
 
-[Raw evidence](results/openllama-7b-v2-ab/) · [Memory-pressure test](results/openllama-7b-v2-ram-constrained/) · [Methodology](docs/MEMORY_BENCHMARKING.md)
+Source of truth: [`results/openllama-7b-v2-ab/summary.json`](results/openllama-7b-v2-ab/summary.json). The README table is generated from that file; do not edit its numbers by hand.
+<!-- END_CANONICAL_7B_BENCHMARK -->
+
+[Raw A/B evidence](results/openllama-7b-v2-ab/) · [Separate memory-pressure test](results/openllama-7b-v2-ram-constrained/) · [Methodology](docs/MEMORY_BENCHMARKING.md)
 
 `llama.cpp` is substantially faster in this test; MemVanta focuses on the **memory-efficiency side of CPU inference**.
 
