@@ -118,7 +118,7 @@ jobs:
           { echo "source_commit=$GITHUB_SHA"; echo "screen_schema=$SCREEN_SCHEMA"; echo "model_sha256=$MODEL_SHA256"; echo "max_rss_increase_pct=$MAX_RSS_INCREASE_PCT"; uname -a; lscpu; free -h; } > throughput-factorial-screen/environment.txt
 
       - name: Upload evidence
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: memvanta-throughput-factorial-screen-rss
           path: throughput-factorial-screen/**

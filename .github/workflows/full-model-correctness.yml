@@ -230,7 +230,7 @@ jobs:
 
       - name: Upload correctness evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: memvanta-full-model-correctness
           path: full-model-correctness/**
