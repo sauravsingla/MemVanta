@@ -1,18 +1,18 @@
 	Command being timed: "timeout --signal=TERM --kill-after=30s 7200 ./build-sevenb-ab/memvanta_real_bench --model openlm-research-open_llama_7b_v2-Q4_0.gguf --threads 4 --ctx 768 --prompt 512 --gen 128 --batch 32 --kv f16 --warmup 1 --reps 5 --no-client --csv sevenb-model-ab/memvanta.csv"
-	User time (seconds): 4983.83
-	System time (seconds): 2.23
-	Percent of CPU this job got: 255%
-	Elapsed (wall clock) time (h:mm:ss or m:ss): 32:33.18
+	User time (seconds): 3594.93
+	System time (seconds): 2.85
+	Percent of CPU this job got: 254%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 23:31.60
 	Average shared text size (kbytes): 0
 	Average unshared data size (kbytes): 0
 	Average stack size (kbytes): 0
 	Average total size (kbytes): 0
-	Maximum resident set size (kbytes): 3983288
+	Maximum resident set size (kbytes): 3983264
 	Average resident set size (kbytes): 0
 	Major (requiring I/O) page faults: 0
-	Minor (reclaiming a frame) page faults: 296204
-	Voluntary context switches: 196017
-	Involuntary context switches: 1146112
+	Minor (reclaiming a frame) page faults: 296205
+	Voluntary context switches: 197767
+	Involuntary context switches: 805979
 	Swaps: 0
 	File system inputs: 0
 	File system outputs: 16
