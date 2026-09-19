@@ -2,7 +2,7 @@
   {
     "build_commit": "6503355",
     "build_number": 1,
-    "cpu_info": "AMD EPYC 9V74 80-Core Processor",
+    "cpu_info": "AMD EPYC 7763 64-Core Processor",
     "gpu_info": "",
     "backends": "CPU",
     "model_filename": "openlm-research-open_llama_7b_v2-Q4_0.gguf",
@@ -35,18 +35,18 @@
     "n_prompt": 32,
     "n_gen": 0,
     "n_depth": 0,
-    "test_time": "2026-09-18T18:23:03Z",
-    "avg_ns": 1380505441,
+    "test_time": "2026-09-19T05:22:34Z",
+    "avg_ns": 2314990483,
     "stddev_ns": 0,
-    "avg_ts": 23.179916,
+    "avg_ts": 13.822951,
     "stddev_ts": 0.000000,
-    "samples_ns": [ 1380505441 ],
-    "samples_ts": [ 23.1799 ]
+    "samples_ns": [ 2314990483 ],
+    "samples_ts": [ 13.823 ]
   },
   {
     "build_commit": "6503355",
     "build_number": 1,
-    "cpu_info": "AMD EPYC 9V74 80-Core Processor",
+    "cpu_info": "AMD EPYC 7763 64-Core Processor",
     "gpu_info": "",
     "backends": "CPU",
     "model_filename": "openlm-research-open_llama_7b_v2-Q4_0.gguf",
@@ -79,12 +79,12 @@
     "n_prompt": 0,
     "n_gen": 16,
     "n_depth": 0,
-    "test_time": "2026-09-18T18:23:06Z",
-    "avg_ns": 1754654908,
+    "test_time": "2026-09-19T05:22:39Z",
+    "avg_ns": 1925000914,
     "stddev_ns": 0,
-    "avg_ts": 9.118602,
+    "avg_ts": 8.311684,
     "stddev_ts": 0.000000,
-    "samples_ns": [ 1754654908 ],
-    "samples_ts": [ 9.1186 ]
+    "samples_ns": [ 1925000914 ],
+    "samples_ts": [ 8.31168 ]
   }
 ]
