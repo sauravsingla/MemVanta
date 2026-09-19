@@ -29,6 +29,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Verify canonical README benchmark
+        if: matrix.build_type == 'Release'
+        run: python3 scripts/sync_headline_benchmark.py --check
+
       - name: Install dependencies
         run: |
           sudo apt-get update

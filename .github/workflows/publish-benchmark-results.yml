@@ -182,6 +182,10 @@ jobs:
 
           find "$DEST" -maxdepth 2 -type f -print | sort
 
+      - name: Synchronize README from canonical 7B result
+        if: steps.gate.outputs.publish == 'true' && github.event.workflow_run.name == 'Seven Billion Model A/B' && github.event.workflow_run.conclusion == 'success'
+        run: python3 scripts/sync_headline_benchmark.py
+
       - name: Commit published evidence
         if: steps.gate.outputs.publish == 'true'
         env:
@@ -192,6 +196,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -f results/
+          git add README.md
           if git diff --cached --quiet; then
             echo "No evidence changes to commit"
             exit 0
