@@ -6,6 +6,9 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/sevenb-ram-constrained.yml'
+  pull_request:
+    paths:
+      - '.github/workflows/sevenb-ram-constrained.yml'
 
 permissions:
   contents: read
@@ -14,41 +17,46 @@ env:
   MODEL: openlm-research-open_llama_7b_v2-Q4_0.gguf
   MODEL_URL: https://huggingface.co/maddes8cht/openlm-research-open_llama_7b_v2-gguf/resolve/main/openlm-research-open_llama_7b_v2-Q4_0.gguf?download=true
   MODEL_SHA256: 892f6e2e840ed98bb7bc1d74da67ae0cca52b2d90b0316d0a7e66a37a5a60760
+  LLAMA_CPP_REF: 6503355df0eb4f65875012523263c302fe0088c1
   THREADS: 4
   CTX: 768
   PROMPT: 128
   GEN: 32
   BATCH: 32
   KV: f16
-  LLAMA_CPP_REF: 6503355df0eb4f65875012523263c302fe0088c1
   OMP_NUM_THREADS: 4
   OMP_DYNAMIC: 'FALSE'
   OMP_PROC_BIND: close
   OMP_PLACES: cores
   MALLOC_ARENA_MAX: 2
+  BOUNDARY_GRANULARITY_MIB: 32
+  BOUNDARY_INITIAL_LOW_MIB: 2048
+  BOUNDARY_INITIAL_HIGH_MIB: 4096
+  BOUNDARY_EXPAND_STEP_MIB: 256
+  BOUNDARY_FLOOR_MIB: 64
+  BOUNDARY_CONFIRM_REPEATS: 2
 
 jobs:
   constrained-memory-7b:
-    name: OpenLLaMA 7B constrained-memory comparison
+    name: OpenLLaMA 7B fine memory-boundary comparison
     runs-on: ubuntu-latest
     timeout-minutes: 180
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential cmake ninja-build curl git time ccache python3
+          sudo apt-get install -y build-essential cmake ninja-build curl git ccache python3
 
-      - name: Build MemVanta
+      - name: Build and test MemVanta
         run: |
           cmake -S . -B build-ram7b -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
           cmake --build build-ram7b -j "$(nproc)"
           ctest --test-dir build-ram7b --output-on-failure
 
-      - name: Download and verify OpenLLaMA 7B Q4_0
+      - name: Download and verify exact OpenLLaMA 7B Q4_0
         run: |
           set -euo pipefail
           curl -L --fail --retry 3 --retry-delay 5 "$MODEL_URL" -o "$MODEL"
@@ -69,18 +77,18 @@ jobs:
             -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
           cmake --build llama.cpp/build --target llama-bench -j "$(nproc)"
 
-      - name: Verify cgroup memory controller
+      - name: Verify cgroup-v2 memory controller
         run: |
+          set -euo pipefail
           test -d /sys/fs/cgroup
           grep -qw memory /sys/fs/cgroup/cgroup.controllers
           systemctl --version | head -n 1
-          test -n "$GITHUB_WORKSPACE"
 
-      - name: Run 7B constrained-memory sweep
+      - name: Find repeat-confirmed 7B RAM boundaries
         run: |
           set -euo pipefail
           mkdir -p sevenb-ram-constrained
-          LIMITS="8192 7680 7168 6656 6144 5632 5120 4608 4352 4096 3840 3584"
+          echo 'runtime,phase,attempt,limit_mib,launcher_exit,exec_exit,result,service_result' > sevenb-ram-constrained/results.csv
 
           {
             echo "model=$MODEL"
@@ -89,32 +97,37 @@ jobs:
             echo "memvanta_commit=$GITHUB_SHA"
             echo "llama_cpp_ref=$LLAMA_CPP_REF"
             echo "threads=$THREADS prompt=$PROMPT gen=$GEN ctx=$CTX batch=$BATCH kv=$KV"
-            echo "limits_mib=$(echo "$LIMITS" | tr ' ' ',')"
-            echo "cgroup=v2 systemd-run MemoryMax with MemorySwapMax=0"
+            echo "boundary_granularity_mib=$BOUNDARY_GRANULARITY_MIB"
+            echo "initial_low_mib=$BOUNDARY_INITIAL_LOW_MIB"
+            echo "initial_high_mib=$BOUNDARY_INITIAL_HIGH_MIB"
+            echo "expand_step_mib=$BOUNDARY_EXPAND_STEP_MIB"
+            echo "floor_mib=$BOUNDARY_FLOOR_MIB"
+            echo "confirmation_repeats=$BOUNDARY_CONFIRM_REPEATS"
+            echo "cgroup=v2 systemd-run MemoryMax with MemorySwapMax=0 and MemoryAccounting=yes"
             uname -a
             lscpu
             free -h
           } > sevenb-ram-constrained/environment.txt
 
-          echo 'runtime,limit_mib,launcher_exit,exec_exit,result,memory_peak_bytes,service_result' > sevenb-ram-constrained/results.csv
+          PROBE_SEQ=0
+          LAST_RESULT=''
 
           run_limited() {
-            runtime="$1"; limit="$2"; shift 2
-            unit="memvanta-7b-${runtime}-${limit}-${GITHUB_RUN_ID}"
-            out="sevenb-ram-constrained/${runtime}-${limit}.stdout.txt"
-            err="sevenb-ram-constrained/${runtime}-${limit}.stderr.txt"
+            runtime="$1"; phase="$2"; attempt="$3"; limit="$4"; shift 4
+            PROBE_SEQ=$((PROBE_SEQ+1))
+            unit="memvanta-7b-${runtime}-${limit}-${PROBE_SEQ}-${GITHUB_RUN_ID}"
+            out="sevenb-ram-constrained/${runtime}-${phase}-${attempt}-${limit}.stdout.txt"
+            err="sevenb-ram-constrained/${runtime}-${phase}-${attempt}-${limit}.stderr.txt"
 
             set +e
             sudo systemd-run --quiet --wait --pipe --unit="$unit" \
-              -p "MemoryMax=${limit}M" \
-              -p MemorySwapMax=0 \
+              -p "MemoryMax=${limit}M" -p MemorySwapMax=0 -p MemoryAccounting=yes \
               /usr/bin/env -C "$GITHUB_WORKSPACE" "$@" >"$out" 2>"$err"
             launch_rc=$?
             set -e
 
             exec_rc="$(sudo systemctl show "${unit}.service" -p ExecMainStatus --value 2>/dev/null || true)"
             service_result="$(sudo systemctl show "${unit}.service" -p Result --value 2>/dev/null || true)"
-            peak="$(sudo systemctl show "${unit}.service" -p MemoryPeak --value 2>/dev/null || true)"
 
             result=failed
             if [ "$launch_rc" -eq 0 ] && [ "${exec_rc:-0}" -eq 0 ] && { [ -z "$service_result" ] || [ "$service_result" = success ]; }; then
@@ -122,70 +135,129 @@ jobs:
             elif [ "$service_result" = oom-kill ]; then
               result=oom
             fi
+            LAST_RESULT="$result"
 
-            echo "$runtime,$limit,$launch_rc,${exec_rc:-unknown},$result,${peak:-unknown},${service_result:-unknown}" >> sevenb-ram-constrained/results.csv
+            echo "$runtime,$phase,$attempt,$limit,$launch_rc,${exec_rc:-unknown},$result,${service_result:-unknown}" >> sevenb-ram-constrained/results.csv
             {
               echo
               echo "launcher_exit=$launch_rc"
               echo "exec_exit=${exec_rc:-unknown}"
               echo "service_result=${service_result:-unknown}"
-              echo "memory_peak_bytes=${peak:-unknown}"
+              echo "classified_result=$result"
             } >> "$err"
 
             sudo systemctl reset-failed "${unit}.service" >/dev/null 2>&1 || true
             sudo systemctl stop "${unit}.service" >/dev/null 2>&1 || true
           }
 
-          for limit in $LIMITS; do
-            run_limited memvanta "$limit" ./build-ram7b/memvanta_real_bench \
-              --model "$MODEL" --threads "$THREADS" --ctx "$CTX" \
-              --prompt "$PROMPT" --gen "$GEN" --batch "$BATCH" --kv "$KV" \
-              --warmup 0 --reps 1 --no-client
-            run_limited llama "$limit" ./llama.cpp/build/bin/llama-bench \
-              -m "$MODEL" -p "$PROMPT" -n "$GEN" -t "$THREADS" -r 1 \
-              -b "$BATCH" -ub "$BATCH" -ctk "$KV" -ctv "$KV" -ngl 0 -o json
-          done
+          probe() {
+            runtime="$1"; phase="$2"; attempt="$3"; limit="$4"
+            if [ "$runtime" = memvanta ]; then
+              run_limited memvanta "$phase" "$attempt" "$limit" ./build-ram7b/memvanta_real_bench \
+                --model "$MODEL" --threads "$THREADS" --ctx "$CTX" --prompt "$PROMPT" \
+                --gen "$GEN" --batch "$BATCH" --kv "$KV" --warmup 0 --reps 1 --no-client
+            else
+              run_limited llama "$phase" "$attempt" "$limit" ./llama.cpp/build/bin/llama-bench \
+                -m "$MODEL" -p "$PROMPT" -n "$GEN" -t "$THREADS" -r 1 \
+                -b "$BATCH" -ub "$BATCH" -ctk "$KV" -ctv "$KV" -ngl 0 -o json
+            fi
+            if [ "$LAST_RESULT" = failed ]; then
+              echo "Non-OOM execution failure for $runtime at ${limit} MiB; refusing to classify it as a memory boundary." >&2
+              exit 1
+            fi
+          }
 
+          search_boundary() {
+            runtime="$1"
+            low="$BOUNDARY_INITIAL_LOW_MIB"
+            high="$BOUNDARY_INITIAL_HIGH_MIB"
+
+            probe "$runtime" bracket-high 1 "$high"
+            test "$LAST_RESULT" = success || { echo "$runtime has no successful upper bracket at ${high} MiB" >&2; exit 1; }
+
+            probe "$runtime" bracket-low 1 "$low"
+            while [ "$LAST_RESULT" = success ] && [ "$low" -gt "$BOUNDARY_FLOOR_MIB" ]; do
+              high="$low"
+              low=$((low-BOUNDARY_EXPAND_STEP_MIB))
+              [ "$low" -ge "$BOUNDARY_FLOOR_MIB" ] || low="$BOUNDARY_FLOOR_MIB"
+              probe "$runtime" expand-low 1 "$low"
+            done
+            test "$LAST_RESULT" = oom || { echo "$runtime still succeeds at floor ${low} MiB; lower the search floor before making a boundary claim" >&2; exit 1; }
+
+            while [ $((high-low)) -gt "$BOUNDARY_GRANULARITY_MIB" ]; do
+              mid=$(( ((low+high)/2/BOUNDARY_GRANULARITY_MIB)*BOUNDARY_GRANULARITY_MIB ))
+              [ "$mid" -gt "$low" ] || mid=$((low+BOUNDARY_GRANULARITY_MIB))
+              [ "$mid" -lt "$high" ] || mid=$((high-BOUNDARY_GRANULARITY_MIB))
+              probe "$runtime" binary 1 "$mid"
+              if [ "$LAST_RESULT" = success ]; then high="$mid"; else low="$mid"; fi
+            done
+
+            for attempt in $(seq 1 "$BOUNDARY_CONFIRM_REPEATS"); do
+              probe "$runtime" confirm-fail "$attempt" "$low"
+              test "$LAST_RESULT" = oom
+              probe "$runtime" confirm-success "$attempt" "$high"
+              test "$LAST_RESULT" = success
+            done
+
+            printf '%s_fail_mib=%s\n%s_success_mib=%s\n' "$runtime" "$low" "$runtime" "$high" >> sevenb-ram-constrained/boundaries.env
+          }
+
+          : > sevenb-ram-constrained/boundaries.env
+          search_boundary memvanta
+          search_boundary llama
           cat sevenb-ram-constrained/results.csv
+          cat sevenb-ram-constrained/boundaries.env
 
-      - name: Summarize and validate 7B boundary
+      - name: Summarize and validate boundary evidence
         run: |
           python3 - <<'PY'
-          import csv, pathlib, json
-          o=pathlib.Path('sevenb-ram-constrained')
-          rows=list(csv.DictReader((o/'results.csv').open()))
-          summary={}
+          import csv, json, os, pathlib
+          out=pathlib.Path('sevenb-ram-constrained')
+          rows=list(csv.DictReader((out/'results.csv').open()))
+          edge={}
+          for line in (out/'boundaries.env').read_text().splitlines():
+              k,v=line.split('=',1); edge[k]=int(v)
+          gran=int(os.environ['BOUNDARY_GRANULARITY_MIB'])
+          confirms=int(os.environ['BOUNDARY_CONFIRM_REPEATS'])
+          summary={'granularity_mib':gran,'method':'cgroup-v2 adaptive search with repeated OOM/success edge confirmation'}
           for rt in ('memvanta','llama'):
               rs=[r for r in rows if r['runtime']==rt]
-              ok=[int(r['limit_mib']) for r in rs if r['result']=='success']
-              summary[rt]={'lowest_success_mib':min(ok) if ok else None,'runs':rs}
-          a=summary['memvanta']['lowest_success_mib']
-          b=summary['llama']['lowest_success_mib']
-          if a is not None and b is not None:
-              summary['lowest_success_difference_mib']=b-a
-              summary['memvanta_boundary_reduction_pct']=(1-a/b)*100
-          (o/'summary.json').write_text(json.dumps(summary,indent=2)+'\n')
-          lines=[
-              '# OpenLLaMA 7B v2 RAM-constrained experiment','',
-              'Linux cgroup-v2 `MemoryMax` sweep with swap disabled. Exact same Q4_0 GGUF, CPU-only, 4 threads, pp128/tg32, context 768, batch 32, F16 KV.','',
-              f"- MemVanta lowest successful tested limit: {a if a is not None else 'none'} MiB",
-              f"- llama.cpp lowest successful tested limit: {b if b is not None else 'none'} MiB",
+              fail=edge[f'{rt}_fail_mib']; success=edge[f'{rt}_success_mib']
+              oks=[int(r['limit_mib']) for r in rs if r['result']=='success']
+              ooms=[int(r['limit_mib']) for r in rs if r['result']=='oom']
+              if not oks or not ooms or fail >= success or success-fail > gran:
+                  raise SystemExit(f'{rt}: invalid boundary evidence')
+              if min(oks) != success or max(ooms) != fail or max(ooms) >= min(oks):
+                  raise SystemExit(f'{rt}: non-monotonic or mismatched boundary evidence')
+              cs=sum(r['phase']=='confirm-success' and int(r['limit_mib'])==success and r['result']=='success' for r in rs)
+              cf=sum(r['phase']=='confirm-fail' and int(r['limit_mib'])==fail and r['result']=='oom' for r in rs)
+              if cs < confirms or cf < confirms:
+                  raise SystemExit(f'{rt}: edge confirmation incomplete')
+              summary[rt]={'highest_confirmed_oom_mib':fail,'lowest_confirmed_success_mib':success,'boundary_interval_mib':[fail,success],'confirmation_repeats':confirms,'runs':rs}
+          a=summary['memvanta']['lowest_confirmed_success_mib']
+          b=summary['llama']['lowest_confirmed_success_mib']
+          summary['confirmed_success_ceiling_difference_mib']=b-a
+          summary['memvanta_confirmed_success_ceiling_reduction_pct']=(1-a/b)*100
+          (out/'summary.json').write_text(json.dumps(summary,indent=2)+'\n')
+          md=[
+            '# OpenLLaMA 7B v2 fine RAM-boundary experiment','',
+            'Linux cgroup-v2 `MemoryMax` search, swap disabled. Same verified Q4_0 GGUF, CPU-only, 4 threads, pp128/tg32, context 768, batch 32, F16 KV.','',
+            f'- Resolution: {gran} MiB',
+            f"- MemVanta: OOM at {summary['memvanta']['highest_confirmed_oom_mib']} MiB; succeeds at {a} MiB",
+            f"- llama.cpp: OOM at {summary['llama']['highest_confirmed_oom_mib']} MiB; succeeds at {b} MiB",
+            f'- Lowest-confirmed-success ceiling difference: {b-a} MiB',
+            f"- MemVanta lower confirmed-success ceiling: {summary['memvanta_confirmed_success_ceiling_reduction_pct']:.2f}%",'',
+            f'Each final edge is repeated {confirms} times. This measures an execution-under-pressure boundary on this hosted runner; it is not an exact physical-RAM minimum and not a throughput benchmark.'
           ]
-          if a is not None and b is not None:
-              lines.append(f"- Tested-ceiling difference: {b-a} MiB")
-              lines.append(f"- MemVanta lower successful tested ceiling: {summary['memvanta_boundary_reduction_pct']:.2f}%")
-          lines += ['', 'This is an execution-under-pressure test over the stated sweep, not an exact minimum physical-RAM requirement and not a throughput benchmark.']
-          (o/'SUMMARY.md').write_text('\n'.join(lines)+'\n')
-          print((o/'SUMMARY.md').read_text())
-          if a is None or b is None:
-              raise SystemExit('invalid 7B constrained-memory evidence: both runtimes need at least one successful tested limit')
+          (out/'SUMMARY.md').write_text('\n'.join(md)+'\n')
+          print((out/'SUMMARY.md').read_text())
           PY
 
       - name: Preserve provenance
+        if: always()
         run: |
-          cp model.sha256 sevenb-ram-constrained/
-          cp model-sha-check.txt sevenb-ram-constrained/
-          cp model-size.txt sevenb-ram-constrained/
+          mkdir -p sevenb-ram-constrained
+          cp model.sha256 model-sha-check.txt model-size.txt sevenb-ram-constrained/ 2>/dev/null || true
 
       - name: Upload 7B constrained-memory evidence
         if: always()
