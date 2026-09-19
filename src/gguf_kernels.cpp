@@ -145,13 +145,20 @@ inline float dot_q6_k_fp32(const GgufBlockQ6_K* blocks,const float*x,std::size_t
     return static_cast<float>(sum);
 }
 
+#if defined(__AVX2__)
+inline int dot_i8_16_vec(__m128i aa,__m128i bb){
+    const __m256i a16=_mm256_cvtepi8_epi16(aa),b16=_mm256_cvtepi8_epi16(bb);
+    const __m256i p32=_mm256_madd_epi16(a16,b16);
+    const __m128i lo=_mm256_castsi256_si128(p32),hi=_mm256_extracti128_si256(p32,1);
+    __m128i v=_mm_add_epi32(lo,hi);v=_mm_hadd_epi32(v,v);v=_mm_hadd_epi32(v,v);return _mm_cvtsi128_si32(v);
+}
+#endif
+
 inline int dot_i8_16(const std::int8_t* a,const std::int8_t* b){
 #if defined(__AVX2__)
-    __m128i aa=_mm_loadu_si128(reinterpret_cast<const __m128i*>(a));
-    __m128i bb=_mm_loadu_si128(reinterpret_cast<const __m128i*>(b));
-    __m256i a16=_mm256_cvtepi8_epi16(aa),b16=_mm256_cvtepi8_epi16(bb);
-    __m256i p32=_mm256_madd_epi16(a16,b16);
-    __m128i lo=_mm256_castsi256_si128(p32),hi=_mm256_extracti128_si256(p32,1);__m128i v=_mm_add_epi32(lo,hi);v=_mm_hadd_epi32(v,v);v=_mm_hadd_epi32(v,v);return _mm_cvtsi128_si32(v);
+    return dot_i8_16_vec(
+        _mm_loadu_si128(reinterpret_cast<const __m128i*>(a)),
+        _mm_loadu_si128(reinterpret_cast<const __m128i*>(b)));
 #else
     int s=0;for(int i=0;i<16;++i)s+=int(a[i])*int(b[i]);return s;
 #endif
@@ -178,20 +185,24 @@ Q8ActBatch quantize_activations_q8(const float*x,std::size_t batch,std::size_t c
 }
 
 inline int dot_q4_q8_block(const GgufBlockQ4_0&w,const std::int8_t*aq){
-    alignas(16)std::int8_t lo[16],hi[16];
 #if defined(__AVX2__)
-    const __m128i packed=_mm_loadu_si128(reinterpret_cast<const __m128i*>(w.qs));const __m128i mask=_mm_set1_epi8(0x0f),bias=_mm_set1_epi8(8);_mm_store_si128(reinterpret_cast<__m128i*>(lo),_mm_sub_epi8(_mm_and_si128(packed,mask),bias));_mm_store_si128(reinterpret_cast<__m128i*>(hi),_mm_sub_epi8(_mm_and_si128(_mm_srli_epi16(packed,4),mask),bias));
+    const __m128i packed=_mm_loadu_si128(reinterpret_cast<const __m128i*>(w.qs));
+    const __m128i mask=_mm_set1_epi8(0x0f),bias=_mm_set1_epi8(8);
+    const __m128i lo=_mm_sub_epi8(_mm_and_si128(packed,mask),bias);
+    const __m128i hi=_mm_sub_epi8(_mm_and_si128(_mm_srli_epi16(packed,4),mask),bias);
+    const __m128i aq0=_mm_loadu_si128(reinterpret_cast<const __m128i*>(aq));
+    const __m128i aq1=_mm_loadu_si128(reinterpret_cast<const __m128i*>(aq+16));
+    return dot_i8_16_vec(lo,aq0)+dot_i8_16_vec(hi,aq1);
 #else
-    for(int i=0;i<16;++i){lo[i]=std::int8_t((w.qs[i]&15)-8);hi[i]=std::int8_t((w.qs[i]>>4)-8);}
+    int s=0;for(int i=0;i<16;++i){s+=(int(w.qs[i]&15)-8)*int(aq[i]);s+=(int(w.qs[i]>>4)-8)*int(aq[16+i]);}return s;
 #endif
-    return dot_i8_16(lo,aq)+dot_i8_16(hi,aq+16);
 }
 inline float dot_q4_q8(const GgufBlockQ4_0*w,const std::int8_t*aq,const float*ad,std::size_t nb){float sum=0;for(std::size_t bi=0;bi<nb;++bi)sum+=fp16_to_fp32(w[bi].d)*ad[bi]*float(dot_q4_q8_block(w[bi],aq+bi*32));return sum;}
 
 inline void q4_row_batch4_fp32(const GgufBlockQ4_0*w,const float*x,std::size_t stride,std::size_t nb,float out[4]){
 #if defined(__AVX2__)
     __m256 a0=_mm256_setzero_ps(),a1=_mm256_setzero_ps(),a2=_mm256_setzero_ps(),a3=_mm256_setzero_ps();const __m128i mask=_mm_set1_epi8(0x0f),bias=_mm_set1_epi8(8);
-    for(std::size_t bi=0;bi<nb;++bi){const float d=fp16_to_fp32(w[bi].d);const __m128i packed=_mm_loadu_si128(reinterpret_cast<const __m128i*>(w[bi].qs));const __m128i lo=_mm_sub_epi8(_mm_and_si128(packed,mask),bias),hi=_mm_sub_epi8(_mm_and_si128(_mm_srli_epi16(packed,4),mask),bias);for(int h=0;h<2;++h){const __m128i src=h?hi:lo;for(int k=0;k<16;k+=8){__m256 q=_mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_cvtepi8_epi32(_mm_srli_si128(src,k))),_mm256_set1_ps(d));std::size_t off=bi*32+h*16+k;a0=_mm256_fmadd_ps(q,_mm256_loadu_ps(x+off),a0);a1=_mm256_fmadd_ps(q,_mm256_loadu_ps(x+stride+off),a1);a2=_mm256_fmadd_ps(q,_mm256_loadu_ps(x+2*stride+off),a2);a3=_mm256_fmadd_ps(q,_mm256_loadu_ps(x+3*stride+off),a3);}}}
+    for(std::size_t bi=0;bi<nb;++bi){const __m256 ds=_mm256_set1_ps(fp16_to_fp32(w[bi].d));const __m128i packed=_mm_loadu_si128(reinterpret_cast<const __m128i*>(w[bi].qs));const __m128i lo=_mm_sub_epi8(_mm_and_si128(packed,mask),bias),hi=_mm_sub_epi8(_mm_and_si128(_mm_srli_epi16(packed,4),mask),bias);for(int h=0;h<2;++h){const __m128i src=h?hi:lo;for(int k=0;k<16;k+=8){__m256 q=_mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_cvtepi8_epi32(_mm_srli_si128(src,k))),ds);std::size_t off=bi*32+h*16+k;a0=_mm256_fmadd_ps(q,_mm256_loadu_ps(x+off),a0);a1=_mm256_fmadd_ps(q,_mm256_loadu_ps(x+stride+off),a1);a2=_mm256_fmadd_ps(q,_mm256_loadu_ps(x+2*stride+off),a2);a3=_mm256_fmadd_ps(q,_mm256_loadu_ps(x+3*stride+off),a3);}}}
     alignas(32)float t[8];auto hs=[&](const __m256&v){_mm256_store_ps(t,v);return t[0]+t[1]+t[2]+t[3]+t[4]+t[5]+t[6]+t[7];};out[0]=hs(a0);out[1]=hs(a1);out[2]=hs(a2);out[3]=hs(a3);
 #else
     for(int j=0;j<4;++j)out[j]=dot_q4_0_fp32(w,x+j*stride,nb*32);
@@ -209,7 +220,36 @@ inline void q8_row_batch4_fp32(const GgufBlockQ8_0*w,const float*x,std::size_t s
 }
 
 inline void q4_row_batch8_fp32(const GgufBlockQ4_0*w,const float*x,std::size_t stride,std::size_t nb,float out[8]){
+#if defined(__AVX2__)
+    __m256 a0=_mm256_setzero_ps(),a1=_mm256_setzero_ps(),a2=_mm256_setzero_ps(),a3=_mm256_setzero_ps();
+    __m256 a4=_mm256_setzero_ps(),a5=_mm256_setzero_ps(),a6=_mm256_setzero_ps(),a7=_mm256_setzero_ps();
+    const __m128i mask=_mm_set1_epi8(0x0f),bias=_mm_set1_epi8(8);
+    for(std::size_t bi=0;bi<nb;++bi){
+        const __m256 ds=_mm256_set1_ps(fp16_to_fp32(w[bi].d));
+        const __m128i packed=_mm_loadu_si128(reinterpret_cast<const __m128i*>(w[bi].qs));
+        const __m128i lo=_mm_sub_epi8(_mm_and_si128(packed,mask),bias);
+        const __m128i hi=_mm_sub_epi8(_mm_and_si128(_mm_srli_epi16(packed,4),mask),bias);
+        for(int h=0;h<2;++h){
+            const __m128i src=h?hi:lo;
+            for(int k=0;k<16;k+=8){
+                const __m256 q=_mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_cvtepi8_epi32(_mm_srli_si128(src,k))),ds);
+                const std::size_t off=bi*32+h*16+k;
+                a0=_mm256_fmadd_ps(q,_mm256_loadu_ps(x+off),a0);
+                a1=_mm256_fmadd_ps(q,_mm256_loadu_ps(x+stride+off),a1);
+                a2=_mm256_fmadd_ps(q,_mm256_loadu_ps(x+2*stride+off),a2);
+                a3=_mm256_fmadd_ps(q,_mm256_loadu_ps(x+3*stride+off),a3);
+                a4=_mm256_fmadd_ps(q,_mm256_loadu_ps(x+4*stride+off),a4);
+                a5=_mm256_fmadd_ps(q,_mm256_loadu_ps(x+5*stride+off),a5);
+                a6=_mm256_fmadd_ps(q,_mm256_loadu_ps(x+6*stride+off),a6);
+                a7=_mm256_fmadd_ps(q,_mm256_loadu_ps(x+7*stride+off),a7);
+            }
+        }
+    }
+    alignas(32)float t[8];auto hs=[&](const __m256&v){_mm256_store_ps(t,v);return t[0]+t[1]+t[2]+t[3]+t[4]+t[5]+t[6]+t[7];};
+    out[0]=hs(a0);out[1]=hs(a1);out[2]=hs(a2);out[3]=hs(a3);out[4]=hs(a4);out[5]=hs(a5);out[6]=hs(a6);out[7]=hs(a7);
+#else
     float a[4],b[4];q4_row_batch4_fp32(w,x,stride,nb,a);q4_row_batch4_fp32(w,x+4*stride,stride,nb,b);for(int i=0;i<4;++i){out[i]=a[i];out[i+4]=b[i];}
+#endif
 }
 inline void q8_row_batch8_fp32(const GgufBlockQ8_0*w,const float*x,std::size_t stride,std::size_t nb,float out[8]){
     float a[4],b[4];q8_row_batch4_fp32(w,x,stride,nb,a);q8_row_batch4_fp32(w,x+4*stride,stride,nb,b);for(int i=0;i<4;++i){out[i]=a[i];out[i+4]=b[i];}
