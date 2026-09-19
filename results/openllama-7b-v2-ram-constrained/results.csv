@@ -1,25 +1,30 @@
-runtime,limit_mib,launcher_exit,exec_exit,result,memory_peak_bytes,service_result
-memvanta,8192,0,0,success,[not set],success
-llama,8192,0,0,success,[not set],success
-memvanta,7680,0,0,success,[not set],success
-llama,7680,0,0,success,[not set],success
-memvanta,7168,0,0,success,[not set],success
-llama,7168,0,0,success,[not set],success
-memvanta,6656,0,0,success,[not set],success
-llama,6656,0,0,success,[not set],success
-memvanta,6144,0,0,success,[not set],success
-llama,6144,0,0,success,[not set],success
-memvanta,5632,0,0,success,[not set],success
-llama,5632,0,0,success,[not set],success
-memvanta,5120,0,0,success,[not set],success
-llama,5120,0,0,success,[not set],success
-memvanta,4608,0,0,success,[not set],success
-llama,4608,0,0,success,[not set],success
-memvanta,4352,0,0,success,[not set],success
-llama,4352,0,0,success,[not set],success
-memvanta,4096,0,0,success,[not set],success
-llama,4096,0,0,success,[not set],success
-memvanta,3840,0,0,success,[not set],success
-llama,3840,0,0,success,[not set],success
-memvanta,3584,0,0,success,[not set],success
-llama,3584,1,9,oom,3758096384,oom-kill
+runtime,phase,attempt,limit_mib,launcher_exit,exec_exit,result,service_result
+memvanta,bracket-high,1,4096,0,0,success,success
+memvanta,bracket-low,1,2048,0,0,success,success
+memvanta,expand-low,1,1792,0,0,success,success
+memvanta,expand-low,1,1536,0,0,success,success
+memvanta,expand-low,1,1280,0,0,success,success
+memvanta,expand-low,1,1024,0,0,success,success
+memvanta,expand-low,1,768,0,0,success,success
+memvanta,expand-low,1,512,0,0,success,success
+memvanta,expand-low,1,256,0,0,success,success
+memvanta,expand-low,1,64,1,9,oom,oom-kill
+memvanta,binary,1,160,0,0,success,success
+memvanta,binary,1,96,1,9,oom,oom-kill
+memvanta,binary,1,128,1,9,oom,oom-kill
+memvanta,confirm-fail,1,128,1,9,oom,oom-kill
+memvanta,confirm-success,1,160,0,0,success,success
+memvanta,confirm-fail,2,128,1,9,oom,oom-kill
+memvanta,confirm-success,2,160,0,0,success,success
+llama,bracket-high,1,4096,0,0,success,success
+llama,bracket-low,1,2048,1,9,oom,oom-kill
+llama,binary,1,3072,1,9,oom,oom-kill
+llama,binary,1,3584,1,9,oom,oom-kill
+llama,binary,1,3840,0,0,success,success
+llama,binary,1,3712,0,0,success,success
+llama,binary,1,3648,0,0,success,success
+llama,binary,1,3616,1,9,oom,oom-kill
+llama,confirm-fail,1,3616,1,9,oom,oom-kill
+llama,confirm-success,1,3648,0,0,success,success
+llama,confirm-fail,2,3616,1,9,oom,oom-kill
+llama,confirm-success,2,3648,0,0,success,success

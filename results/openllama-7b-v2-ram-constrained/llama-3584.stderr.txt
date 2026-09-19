@@ -1,5 +1,0 @@
-
-launcher_exit=1
-exec_exit=9
-service_result=oom-kill
-memory_peak_bytes=3758096384

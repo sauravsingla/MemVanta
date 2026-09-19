@@ -1,10 +1,11 @@
-# OpenLLaMA 7B v2 RAM-constrained experiment
+# OpenLLaMA 7B v2 fine RAM-boundary experiment
 
-Linux cgroup-v2 `MemoryMax` sweep with swap disabled. Exact same Q4_0 GGUF, CPU-only, 4 threads, pp128/tg32, context 768, batch 32, F16 KV.
+Linux cgroup-v2 `MemoryMax` search, swap disabled. Same verified Q4_0 GGUF, CPU-only, 4 threads, pp128/tg32, context 768, batch 32, F16 KV.
 
-- MemVanta lowest successful tested limit: 3584 MiB
-- llama.cpp lowest successful tested limit: 3840 MiB
-- Tested-ceiling difference: 256 MiB
-- MemVanta lower successful tested ceiling: 6.67%
+- Resolution: 32 MiB
+- MemVanta: OOM at 128 MiB; succeeds at 160 MiB
+- llama.cpp: OOM at 3616 MiB; succeeds at 3648 MiB
+- Lowest-confirmed-success ceiling difference: 3488 MiB
+- MemVanta lower confirmed-success ceiling: 95.61%
 
-This is an execution-under-pressure test over the stated sweep, not an exact minimum physical-RAM requirement and not a throughput benchmark.
+Each final edge is repeated 2 times. This measures an execution-under-pressure boundary on this hosted runner; it is not an exact physical-RAM minimum and not a throughput benchmark.

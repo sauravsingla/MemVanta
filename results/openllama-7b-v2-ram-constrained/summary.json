@@ -1,230 +1,318 @@
 {
+  "granularity_mib": 32,
+  "method": "cgroup-v2 adaptive search with repeated OOM/success edge confirmation",
   "memvanta": {
-    "lowest_success_mib": 3584,
+    "highest_confirmed_oom_mib": 128,
+    "lowest_confirmed_success_mib": 160,
+    "boundary_interval_mib": [
+      128,
+      160
+    ],
+    "confirmation_repeats": 2,
     "runs": [
       {
         "runtime": "memvanta",
-        "limit_mib": "8192",
-        "launcher_exit": "0",
-        "exec_exit": "0",
-        "result": "success",
-        "memory_peak_bytes": "[not set]",
-        "service_result": "success"
-      },
-      {
-        "runtime": "memvanta",
-        "limit_mib": "7680",
-        "launcher_exit": "0",
-        "exec_exit": "0",
-        "result": "success",
-        "memory_peak_bytes": "[not set]",
-        "service_result": "success"
-      },
-      {
-        "runtime": "memvanta",
-        "limit_mib": "7168",
-        "launcher_exit": "0",
-        "exec_exit": "0",
-        "result": "success",
-        "memory_peak_bytes": "[not set]",
-        "service_result": "success"
-      },
-      {
-        "runtime": "memvanta",
-        "limit_mib": "6656",
-        "launcher_exit": "0",
-        "exec_exit": "0",
-        "result": "success",
-        "memory_peak_bytes": "[not set]",
-        "service_result": "success"
-      },
-      {
-        "runtime": "memvanta",
-        "limit_mib": "6144",
-        "launcher_exit": "0",
-        "exec_exit": "0",
-        "result": "success",
-        "memory_peak_bytes": "[not set]",
-        "service_result": "success"
-      },
-      {
-        "runtime": "memvanta",
-        "limit_mib": "5632",
-        "launcher_exit": "0",
-        "exec_exit": "0",
-        "result": "success",
-        "memory_peak_bytes": "[not set]",
-        "service_result": "success"
-      },
-      {
-        "runtime": "memvanta",
-        "limit_mib": "5120",
-        "launcher_exit": "0",
-        "exec_exit": "0",
-        "result": "success",
-        "memory_peak_bytes": "[not set]",
-        "service_result": "success"
-      },
-      {
-        "runtime": "memvanta",
-        "limit_mib": "4608",
-        "launcher_exit": "0",
-        "exec_exit": "0",
-        "result": "success",
-        "memory_peak_bytes": "[not set]",
-        "service_result": "success"
-      },
-      {
-        "runtime": "memvanta",
-        "limit_mib": "4352",
-        "launcher_exit": "0",
-        "exec_exit": "0",
-        "result": "success",
-        "memory_peak_bytes": "[not set]",
-        "service_result": "success"
-      },
-      {
-        "runtime": "memvanta",
+        "phase": "bracket-high",
+        "attempt": "1",
         "limit_mib": "4096",
         "launcher_exit": "0",
         "exec_exit": "0",
         "result": "success",
-        "memory_peak_bytes": "[not set]",
         "service_result": "success"
       },
       {
         "runtime": "memvanta",
-        "limit_mib": "3840",
+        "phase": "bracket-low",
+        "attempt": "1",
+        "limit_mib": "2048",
         "launcher_exit": "0",
         "exec_exit": "0",
         "result": "success",
-        "memory_peak_bytes": "[not set]",
         "service_result": "success"
       },
       {
         "runtime": "memvanta",
-        "limit_mib": "3584",
+        "phase": "expand-low",
+        "attempt": "1",
+        "limit_mib": "1792",
         "launcher_exit": "0",
         "exec_exit": "0",
         "result": "success",
-        "memory_peak_bytes": "[not set]",
+        "service_result": "success"
+      },
+      {
+        "runtime": "memvanta",
+        "phase": "expand-low",
+        "attempt": "1",
+        "limit_mib": "1536",
+        "launcher_exit": "0",
+        "exec_exit": "0",
+        "result": "success",
+        "service_result": "success"
+      },
+      {
+        "runtime": "memvanta",
+        "phase": "expand-low",
+        "attempt": "1",
+        "limit_mib": "1280",
+        "launcher_exit": "0",
+        "exec_exit": "0",
+        "result": "success",
+        "service_result": "success"
+      },
+      {
+        "runtime": "memvanta",
+        "phase": "expand-low",
+        "attempt": "1",
+        "limit_mib": "1024",
+        "launcher_exit": "0",
+        "exec_exit": "0",
+        "result": "success",
+        "service_result": "success"
+      },
+      {
+        "runtime": "memvanta",
+        "phase": "expand-low",
+        "attempt": "1",
+        "limit_mib": "768",
+        "launcher_exit": "0",
+        "exec_exit": "0",
+        "result": "success",
+        "service_result": "success"
+      },
+      {
+        "runtime": "memvanta",
+        "phase": "expand-low",
+        "attempt": "1",
+        "limit_mib": "512",
+        "launcher_exit": "0",
+        "exec_exit": "0",
+        "result": "success",
+        "service_result": "success"
+      },
+      {
+        "runtime": "memvanta",
+        "phase": "expand-low",
+        "attempt": "1",
+        "limit_mib": "256",
+        "launcher_exit": "0",
+        "exec_exit": "0",
+        "result": "success",
+        "service_result": "success"
+      },
+      {
+        "runtime": "memvanta",
+        "phase": "expand-low",
+        "attempt": "1",
+        "limit_mib": "64",
+        "launcher_exit": "1",
+        "exec_exit": "9",
+        "result": "oom",
+        "service_result": "oom-kill"
+      },
+      {
+        "runtime": "memvanta",
+        "phase": "binary",
+        "attempt": "1",
+        "limit_mib": "160",
+        "launcher_exit": "0",
+        "exec_exit": "0",
+        "result": "success",
+        "service_result": "success"
+      },
+      {
+        "runtime": "memvanta",
+        "phase": "binary",
+        "attempt": "1",
+        "limit_mib": "96",
+        "launcher_exit": "1",
+        "exec_exit": "9",
+        "result": "oom",
+        "service_result": "oom-kill"
+      },
+      {
+        "runtime": "memvanta",
+        "phase": "binary",
+        "attempt": "1",
+        "limit_mib": "128",
+        "launcher_exit": "1",
+        "exec_exit": "9",
+        "result": "oom",
+        "service_result": "oom-kill"
+      },
+      {
+        "runtime": "memvanta",
+        "phase": "confirm-fail",
+        "attempt": "1",
+        "limit_mib": "128",
+        "launcher_exit": "1",
+        "exec_exit": "9",
+        "result": "oom",
+        "service_result": "oom-kill"
+      },
+      {
+        "runtime": "memvanta",
+        "phase": "confirm-success",
+        "attempt": "1",
+        "limit_mib": "160",
+        "launcher_exit": "0",
+        "exec_exit": "0",
+        "result": "success",
+        "service_result": "success"
+      },
+      {
+        "runtime": "memvanta",
+        "phase": "confirm-fail",
+        "attempt": "2",
+        "limit_mib": "128",
+        "launcher_exit": "1",
+        "exec_exit": "9",
+        "result": "oom",
+        "service_result": "oom-kill"
+      },
+      {
+        "runtime": "memvanta",
+        "phase": "confirm-success",
+        "attempt": "2",
+        "limit_mib": "160",
+        "launcher_exit": "0",
+        "exec_exit": "0",
+        "result": "success",
         "service_result": "success"
       }
     ]
   },
   "llama": {
-    "lowest_success_mib": 3840,
+    "highest_confirmed_oom_mib": 3616,
+    "lowest_confirmed_success_mib": 3648,
+    "boundary_interval_mib": [
+      3616,
+      3648
+    ],
+    "confirmation_repeats": 2,
     "runs": [
       {
         "runtime": "llama",
-        "limit_mib": "8192",
-        "launcher_exit": "0",
-        "exec_exit": "0",
-        "result": "success",
-        "memory_peak_bytes": "[not set]",
-        "service_result": "success"
-      },
-      {
-        "runtime": "llama",
-        "limit_mib": "7680",
-        "launcher_exit": "0",
-        "exec_exit": "0",
-        "result": "success",
-        "memory_peak_bytes": "[not set]",
-        "service_result": "success"
-      },
-      {
-        "runtime": "llama",
-        "limit_mib": "7168",
-        "launcher_exit": "0",
-        "exec_exit": "0",
-        "result": "success",
-        "memory_peak_bytes": "[not set]",
-        "service_result": "success"
-      },
-      {
-        "runtime": "llama",
-        "limit_mib": "6656",
-        "launcher_exit": "0",
-        "exec_exit": "0",
-        "result": "success",
-        "memory_peak_bytes": "[not set]",
-        "service_result": "success"
-      },
-      {
-        "runtime": "llama",
-        "limit_mib": "6144",
-        "launcher_exit": "0",
-        "exec_exit": "0",
-        "result": "success",
-        "memory_peak_bytes": "[not set]",
-        "service_result": "success"
-      },
-      {
-        "runtime": "llama",
-        "limit_mib": "5632",
-        "launcher_exit": "0",
-        "exec_exit": "0",
-        "result": "success",
-        "memory_peak_bytes": "[not set]",
-        "service_result": "success"
-      },
-      {
-        "runtime": "llama",
-        "limit_mib": "5120",
-        "launcher_exit": "0",
-        "exec_exit": "0",
-        "result": "success",
-        "memory_peak_bytes": "[not set]",
-        "service_result": "success"
-      },
-      {
-        "runtime": "llama",
-        "limit_mib": "4608",
-        "launcher_exit": "0",
-        "exec_exit": "0",
-        "result": "success",
-        "memory_peak_bytes": "[not set]",
-        "service_result": "success"
-      },
-      {
-        "runtime": "llama",
-        "limit_mib": "4352",
-        "launcher_exit": "0",
-        "exec_exit": "0",
-        "result": "success",
-        "memory_peak_bytes": "[not set]",
-        "service_result": "success"
-      },
-      {
-        "runtime": "llama",
+        "phase": "bracket-high",
+        "attempt": "1",
         "limit_mib": "4096",
         "launcher_exit": "0",
         "exec_exit": "0",
         "result": "success",
-        "memory_peak_bytes": "[not set]",
         "service_result": "success"
       },
       {
         "runtime": "llama",
-        "limit_mib": "3840",
-        "launcher_exit": "0",
-        "exec_exit": "0",
-        "result": "success",
-        "memory_peak_bytes": "[not set]",
-        "service_result": "success"
+        "phase": "bracket-low",
+        "attempt": "1",
+        "limit_mib": "2048",
+        "launcher_exit": "1",
+        "exec_exit": "9",
+        "result": "oom",
+        "service_result": "oom-kill"
       },
       {
         "runtime": "llama",
+        "phase": "binary",
+        "attempt": "1",
+        "limit_mib": "3072",
+        "launcher_exit": "1",
+        "exec_exit": "9",
+        "result": "oom",
+        "service_result": "oom-kill"
+      },
+      {
+        "runtime": "llama",
+        "phase": "binary",
+        "attempt": "1",
         "limit_mib": "3584",
         "launcher_exit": "1",
         "exec_exit": "9",
         "result": "oom",
-        "memory_peak_bytes": "3758096384",
         "service_result": "oom-kill"
+      },
+      {
+        "runtime": "llama",
+        "phase": "binary",
+        "attempt": "1",
+        "limit_mib": "3840",
+        "launcher_exit": "0",
+        "exec_exit": "0",
+        "result": "success",
+        "service_result": "success"
+      },
+      {
+        "runtime": "llama",
+        "phase": "binary",
+        "attempt": "1",
+        "limit_mib": "3712",
+        "launcher_exit": "0",
+        "exec_exit": "0",
+        "result": "success",
+        "service_result": "success"
+      },
+      {
+        "runtime": "llama",
+        "phase": "binary",
+        "attempt": "1",
+        "limit_mib": "3648",
+        "launcher_exit": "0",
+        "exec_exit": "0",
+        "result": "success",
+        "service_result": "success"
+      },
+      {
+        "runtime": "llama",
+        "phase": "binary",
+        "attempt": "1",
+        "limit_mib": "3616",
+        "launcher_exit": "1",
+        "exec_exit": "9",
+        "result": "oom",
+        "service_result": "oom-kill"
+      },
+      {
+        "runtime": "llama",
+        "phase": "confirm-fail",
+        "attempt": "1",
+        "limit_mib": "3616",
+        "launcher_exit": "1",
+        "exec_exit": "9",
+        "result": "oom",
+        "service_result": "oom-kill"
+      },
+      {
+        "runtime": "llama",
+        "phase": "confirm-success",
+        "attempt": "1",
+        "limit_mib": "3648",
+        "launcher_exit": "0",
+        "exec_exit": "0",
+        "result": "success",
+        "service_result": "success"
+      },
+      {
+        "runtime": "llama",
+        "phase": "confirm-fail",
+        "attempt": "2",
+        "limit_mib": "3616",
+        "launcher_exit": "1",
+        "exec_exit": "9",
+        "result": "oom",
+        "service_result": "oom-kill"
+      },
+      {
+        "runtime": "llama",
+        "phase": "confirm-success",
+        "attempt": "2",
+        "limit_mib": "3648",
+        "launcher_exit": "0",
+        "exec_exit": "0",
+        "result": "success",
+        "service_result": "success"
       }
     ]
   },
-  "lowest_success_difference_mib": 256,
-  "memvanta_boundary_reduction_pct": 6.666666666666665
+  "confirmed_success_ceiling_difference_mib": 3488,
+  "memvanta_confirmed_success_ceiling_reduction_pct": 95.6140350877193
 }

@@ -1,0 +1,5 @@
+
+launcher_exit=1
+exec_exit=9
+service_result=oom-kill
+classified_result=oom
