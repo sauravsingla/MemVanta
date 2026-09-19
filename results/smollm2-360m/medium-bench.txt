@@ -1,6 +1,6 @@
 | model | size | params | backend | threads | test | t/s |
 |---|---:|---:|---|---:|---|---:|
-| Models | 216.80 MiB | 361.82 M | MemVanta CPU | 4 | pp32 | 56.07 ± 0.00 |
-| Models | 216.80 MiB | 361.82 M | MemVanta CPU | 4 | tg16 | 22.53 ± 0.00 |
-TTFT(126 input): 2630.10 ± 0.00 ms; output TPS(2): 22.98 ± 0.00
-load=24.32 ms peak_rss=244.45 MiB kv_alloc=5.00 MiB batch=16 kv=f16
+| Models | 216.80 MiB | 361.82 M | MemVanta CPU | 4 | pp32 | 60.49 ± 0.00 |
+| Models | 216.80 MiB | 361.82 M | MemVanta CPU | 4 | tg16 | 31.55 ± 0.00 |
+TTFT(126 input): 2339.60 ± 0.00 ms; output TPS(2): 32.16 ± 0.00
+load=26.17 ms peak_rss=244.35 MiB kv_alloc=5.00 MiB batch=16 kv=f16
