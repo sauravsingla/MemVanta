@@ -90,9 +90,18 @@ void parallel_rows(std::size_t rows, unsigned threads, WorkerPool* pool, Fn fn) 
 #endif
 }
 
+inline float kernel_fp16_to_fp32(std::uint16_t h) {
+#if defined(__AVX2__) && defined(__F16C__)
+    const __m128i packed=_mm_cvtsi32_si128(static_cast<int>(h));
+    return _mm_cvtss_f32(_mm_cvtph_ps(packed));
+#else
+    return fp16_to_fp32(h);
+#endif
+}
+
 inline float dot_q4_0_fp32(const GgufBlockQ4_0* blocks,const float*x,std::size_t n){
     const std::size_t nb=n/32;float sum=0.0f;
-    for(std::size_t b=0;b<nb;++b){const float d=fp16_to_fp32(blocks[b].d);
+    for(std::size_t b=0;b<nb;++b){const float d=kernel_fp16_to_fp32(blocks[b].d);
 #if defined(__AVX2__)
         const __m128i packed=_mm_loadu_si128(reinterpret_cast<const __m128i*>(blocks[b].qs));
         const __m128i mask=_mm_set1_epi8(0x0f),bias=_mm_set1_epi8(8);
@@ -110,7 +119,7 @@ inline float dot_q4_0_fp32(const GgufBlockQ4_0* blocks,const float*x,std::size_t
 
 inline float dot_q8_0_fp32(const GgufBlockQ8_0* blocks,const float*x,std::size_t n){
     const std::size_t nb=n/32;float sum=0;
-    for(std::size_t b=0;b<nb;++b){float d=fp16_to_fp32(blocks[b].d);
+    for(std::size_t b=0;b<nb;++b){float d=kernel_fp16_to_fp32(blocks[b].d);
 #if defined(__AVX2__)
         __m256 acc=_mm256_setzero_ps();for(int k=0;k<32;k+=8){auto q8=_mm_loadl_epi64(reinterpret_cast<const __m128i*>(blocks[b].qs+k));auto qi=_mm256_cvtepi8_epi32(q8);acc=_mm256_fmadd_ps(_mm256_cvtepi32_ps(qi),_mm256_loadu_ps(x+b*32+k),acc);}alignas(32)float tmp[8];_mm256_store_ps(tmp,acc);float s=0;for(float v:tmp)s+=v;sum+=d*s;
 #else
@@ -186,12 +195,12 @@ inline int dot_q4_q8_block(const GgufBlockQ4_0&w,const std::int8_t*aq){
 #endif
     return dot_i8_16(lo,aq)+dot_i8_16(hi,aq+16);
 }
-inline float dot_q4_q8(const GgufBlockQ4_0*w,const std::int8_t*aq,const float*ad,std::size_t nb){float sum=0;for(std::size_t bi=0;bi<nb;++bi)sum+=fp16_to_fp32(w[bi].d)*ad[bi]*float(dot_q4_q8_block(w[bi],aq+bi*32));return sum;}
+inline float dot_q4_q8(const GgufBlockQ4_0*w,const std::int8_t*aq,const float*ad,std::size_t nb){float sum=0;for(std::size_t bi=0;bi<nb;++bi)sum+=kernel_fp16_to_fp32(w[bi].d)*ad[bi]*float(dot_q4_q8_block(w[bi],aq+bi*32));return sum;}
 
 inline void q4_row_batch4_fp32(const GgufBlockQ4_0*w,const float*x,std::size_t stride,std::size_t nb,float out[4]){
 #if defined(__AVX2__)
     __m256 a0=_mm256_setzero_ps(),a1=_mm256_setzero_ps(),a2=_mm256_setzero_ps(),a3=_mm256_setzero_ps();const __m128i mask=_mm_set1_epi8(0x0f),bias=_mm_set1_epi8(8);
-    for(std::size_t bi=0;bi<nb;++bi){const float d=fp16_to_fp32(w[bi].d);const __m128i packed=_mm_loadu_si128(reinterpret_cast<const __m128i*>(w[bi].qs));const __m128i lo=_mm_sub_epi8(_mm_and_si128(packed,mask),bias),hi=_mm_sub_epi8(_mm_and_si128(_mm_srli_epi16(packed,4),mask),bias);for(int h=0;h<2;++h){const __m128i src=h?hi:lo;for(int k=0;k<16;k+=8){__m256 q=_mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_cvtepi8_epi32(_mm_srli_si128(src,k))),_mm256_set1_ps(d));std::size_t off=bi*32+h*16+k;a0=_mm256_fmadd_ps(q,_mm256_loadu_ps(x+off),a0);a1=_mm256_fmadd_ps(q,_mm256_loadu_ps(x+stride+off),a1);a2=_mm256_fmadd_ps(q,_mm256_loadu_ps(x+2*stride+off),a2);a3=_mm256_fmadd_ps(q,_mm256_loadu_ps(x+3*stride+off),a3);}}}
+    for(std::size_t bi=0;bi<nb;++bi){const __m256 ds=_mm256_set1_ps(kernel_fp16_to_fp32(w[bi].d));const __m128i packed=_mm_loadu_si128(reinterpret_cast<const __m128i*>(w[bi].qs));const __m128i lo=_mm_sub_epi8(_mm_and_si128(packed,mask),bias),hi=_mm_sub_epi8(_mm_and_si128(_mm_srli_epi16(packed,4),mask),bias);for(int h=0;h<2;++h){const __m128i src=h?hi:lo;for(int k=0;k<16;k+=8){__m256 q=_mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_cvtepi8_epi32(_mm_srli_si128(src,k))),ds);std::size_t off=bi*32+h*16+k;a0=_mm256_fmadd_ps(q,_mm256_loadu_ps(x+off),a0);a1=_mm256_fmadd_ps(q,_mm256_loadu_ps(x+stride+off),a1);a2=_mm256_fmadd_ps(q,_mm256_loadu_ps(x+2*stride+off),a2);a3=_mm256_fmadd_ps(q,_mm256_loadu_ps(x+3*stride+off),a3);}}}
     alignas(32)float t[8];auto hs=[&](const __m256&v){_mm256_store_ps(t,v);return t[0]+t[1]+t[2]+t[3]+t[4]+t[5]+t[6]+t[7];};out[0]=hs(a0);out[1]=hs(a1);out[2]=hs(a2);out[3]=hs(a3);
 #else
     for(int j=0;j<4;++j)out[j]=dot_q4_0_fp32(w,x+j*stride,nb*32);
@@ -201,7 +210,7 @@ inline void q4_row_batch4_fp32(const GgufBlockQ4_0*w,const float*x,std::size_t s
 inline void q8_row_batch4_fp32(const GgufBlockQ8_0*w,const float*x,std::size_t stride,std::size_t nb,float out[4]){
 #if defined(__AVX2__)
     __m256 a0=_mm256_setzero_ps(),a1=_mm256_setzero_ps(),a2=_mm256_setzero_ps(),a3=_mm256_setzero_ps();
-    for(std::size_t bi=0;bi<nb;++bi){const __m256 ds=_mm256_set1_ps(fp16_to_fp32(w[bi].d));for(int k=0;k<32;k+=8){__m128i q8=_mm_loadl_epi64(reinterpret_cast<const __m128i*>(w[bi].qs+k));__m256 q=_mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_cvtepi8_epi32(q8)),ds);std::size_t off=bi*32+k;a0=_mm256_fmadd_ps(q,_mm256_loadu_ps(x+off),a0);a1=_mm256_fmadd_ps(q,_mm256_loadu_ps(x+stride+off),a1);a2=_mm256_fmadd_ps(q,_mm256_loadu_ps(x+2*stride+off),a2);a3=_mm256_fmadd_ps(q,_mm256_loadu_ps(x+3*stride+off),a3);}}
+    for(std::size_t bi=0;bi<nb;++bi){const __m256 ds=_mm256_set1_ps(kernel_fp16_to_fp32(w[bi].d));for(int k=0;k<32;k+=8){__m128i q8=_mm_loadl_epi64(reinterpret_cast<const __m128i*>(w[bi].qs+k));__m256 q=_mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_cvtepi8_epi32(q8)),ds);std::size_t off=bi*32+k;a0=_mm256_fmadd_ps(q,_mm256_loadu_ps(x+off),a0);a1=_mm256_fmadd_ps(q,_mm256_loadu_ps(x+stride+off),a1);a2=_mm256_fmadd_ps(q,_mm256_loadu_ps(x+2*stride+off),a2);a3=_mm256_fmadd_ps(q,_mm256_loadu_ps(x+3*stride+off),a3);}}
     alignas(32)float t[8];auto hs=[&](const __m256&v){_mm256_store_ps(t,v);return t[0]+t[1]+t[2]+t[3]+t[4]+t[5]+t[6]+t[7];};out[0]=hs(a0);out[1]=hs(a1);out[2]=hs(a2);out[3]=hs(a3);
 #else
     for(int j=0;j<4;++j)out[j]=dot_q8_0_fp32(w,x+j*stride,nb*32);
