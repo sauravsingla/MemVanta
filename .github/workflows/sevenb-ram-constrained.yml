@@ -137,7 +137,7 @@ jobs:
             result=failed
             if [ "$launch_rc" -eq 0 ] && [ "${exec_rc:-0}" -eq 0 ] && { [ -z "$service_result" ] || [ "$service_result" = success ]; }; then
               result=success
-            elif [ "$service_result" = oom-kill ] || [ "${exec_rc:-}" = 9 ]; then
+            elif [ "$service_result" = oom-kill ]; then
               result=oom
             fi
             LAST_RESULT="$result"
@@ -206,7 +206,7 @@ jobs:
             fi
 
             while [ $((high-low)) -gt "$BOUNDARY_GRANULARITY_MIB" ]; do
-              mid=$((((low+high)/2)/BOUNDARY_GRANULARITY_MIB*BOUNDARY_GRANULARITY_MIB))
+              mid=$(( ((low + high) / 2 / BOUNDARY_GRANULARITY_MIB) * BOUNDARY_GRANULARITY_MIB ))
               if [ "$mid" -le "$low" ]; then mid=$((low+BOUNDARY_GRANULARITY_MIB)); fi
               if [ "$mid" -ge "$high" ]; then mid=$((high-BOUNDARY_GRANULARITY_MIB)); fi
               probe "$runtime" binary 1 "$mid"
@@ -239,18 +239,21 @@ jobs:
       - name: Summarize and validate 7B boundary
         run: |
           python3 - <<'PY'
-          import csv, pathlib, json
+          import csv, json, os, pathlib
           o=pathlib.Path('sevenb-ram-constrained')
           rows=list(csv.DictReader((o/'results.csv').open()))
           env={}
           for line in (o/'boundaries.env').read_text().splitlines():
               k,v=line.split('=',1); env[k]=int(v)
 
-          granularity=32
+          granularity=int(os.environ['BOUNDARY_GRANULARITY_MIB'])
+          confirms=int(os.environ['BOUNDARY_CONFIRM_REPEATS'])
           summary={'granularity_mib':granularity,'method':'adaptive cgroup-v2 binary boundary search with repeated edge confirmation'}
           for rt in ('memvanta','llama'):
               rs=[r for r in rows if r['runtime']==rt]
               fail=env[f'{rt}_fail_mib']; success=env[f'{rt}_success_mib']
+              if fail >= success:
+                  raise SystemExit(f'{rt}: invalid final bracket {fail}..{success}')
               if success-fail > granularity:
                   raise SystemExit(f'{rt}: final bracket wider than {granularity} MiB')
               success_limits=[int(r['limit_mib']) for r in rs if r['result']=='success']
@@ -261,12 +264,12 @@ jobs:
                   raise SystemExit(f'{rt}: recorded boundary does not match lowest successful probe')
               if max(oom_limits) != fail:
                   raise SystemExit(f'{rt}: recorded boundary does not match highest OOM probe')
-              if any(x < success for x in success_limits) or any(x > fail for x in oom_limits):
+              if max(oom_limits) >= min(success_limits):
                   raise SystemExit(f'{rt}: non-monotonic memory-boundary evidence')
               confirm_success=sum(1 for r in rs if r['phase']=='confirm-success' and int(r['limit_mib'])==success and r['result']=='success')
               confirm_fail=sum(1 for r in rs if r['phase']=='confirm-fail' and int(r['limit_mib'])==fail and r['result']=='oom')
-              if confirm_success < 2 or confirm_fail < 2:
-                  raise SystemExit(f'{rt}: boundary edge not confirmed twice')
+              if confirm_success < confirms or confirm_fail < confirms:
+                  raise SystemExit(f'{rt}: boundary edge not confirmed {confirms} times')
               peaks=[]
               for r in rs:
                   p=r['memory_peak_bytes']
@@ -275,7 +278,7 @@ jobs:
                   'highest_confirmed_oom_mib':fail,
                   'lowest_confirmed_success_mib':success,
                   'boundary_interval_mib':[fail,success],
-                  'confirmation_repeats':2,
+                  'confirmation_repeats':confirms,
                   'max_recorded_memory_peak_bytes':max(peaks) if peaks else None,
                   'runs':rs,
               }
@@ -294,7 +297,7 @@ jobs:
               f"- Difference between lowest confirmed successful ceilings: {b-a} MiB",
               f"- MemVanta lower confirmed successful ceiling: {summary['memvanta_confirmed_success_ceiling_reduction_pct']:.2f}%",
               '',
-              'Each final OOM/success edge is re-run twice. This is an execution-under-pressure boundary interval on this hosted runner, not an exact minimum physical-RAM requirement and not a throughput benchmark.',
+              f'Each final OOM/success edge is re-run {confirms} times. This is an execution-under-pressure boundary interval on this hosted runner, not an exact minimum physical-RAM requirement and not a throughput benchmark.',
           ]
           (o/'SUMMARY.md').write_text('\n'.join(lines)+'\n')
           print((o/'SUMMARY.md').read_text())
