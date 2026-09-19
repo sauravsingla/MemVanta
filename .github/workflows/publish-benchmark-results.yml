@@ -65,7 +65,7 @@ jobs:
 
       - name: Checkout main
         if: steps.gate.outputs.publish == 'true'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: main
           fetch-depth: 0

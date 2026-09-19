@@ -45,7 +45,7 @@ jobs:
       run_ab: ${{ steps.scope.outputs.run_ab }}
     steps:
       - name: Checkout history for scope detection
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -109,14 +109,14 @@ jobs:
           fi
 
       - name: Checkout candidate
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ steps.refs.outputs.candidate }}
           fetch-depth: 1
           path: optimized
 
       - name: Checkout current baseline
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ steps.refs.outputs.baseline }}
           fetch-depth: 1
