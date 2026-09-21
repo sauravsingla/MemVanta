@@ -1,0 +1,192 @@
+name: Seven Billion Weight Prefetch Pressure
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/sevenb-weight-prefetch-pressure.yml'
+      - 'CMakeLists.txt'
+      - 'include/memvanta/runtime.hpp'
+      - 'src/runtime.cpp'
+      - 'src/prefetcher.cpp'
+      - 'src/tensor_store.cpp'
+      - 'src/mmap_file.cpp'
+      - 'benchmarks/streaming_bench.cpp'
+
+permissions:
+  contents: read
+
+env:
+  MODEL: openlm-research-open_llama_7b_v2-Q4_0.gguf
+  MODEL_URL: https://huggingface.co/maddes8cht/openlm-research-open_llama_7b_v2-gguf/resolve/main/openlm-research-open_llama_7b_v2-Q4_0.gguf?download=true
+  MODEL_SHA256: 892f6e2e840ed98bb7bc1d74da67ae0cca52b2d90b0316d0a7e66a37a5a60760
+  MEMORY_MAX_MIB: 1024
+  SLICE_MIB: 64
+  CACHE_MIB: 256
+  PREFETCH_BUDGET_MIB: 256
+  PREFETCH_DEPTH: 1
+  PREFETCH_MIN_DEPTH: 1
+  PREFETCH_MAX_DEPTH: 4
+  PREFETCH_WINDOW: 8
+  PASSES: 2
+  REPS: 3
+
+jobs:
+  pressure:
+    name: 7B adaptive weight-stream pressure A/B
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake ninja-build curl
+
+      - name: Build and test
+        run: |
+          cmake -S . -B build-prefetch -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-prefetch --target memvanta_bench memvanta_tests -j "$(nproc)"
+          ctest --test-dir build-prefetch --output-on-failure
+
+      - name: Download and verify exact 7B GGUF
+        run: |
+          set -euo pipefail
+          curl -L --fail --retry 3 --retry-delay 5 "$MODEL_URL" -o "$MODEL"
+          echo "$MODEL_SHA256  $MODEL" | sha256sum -c -
+          test "$(stat -c %s "$MODEL")" -gt 3500000000
+
+      - name: Verify cgroup-v2 memory controller
+        run: |
+          set -euo pipefail
+          test -d /sys/fs/cgroup
+          grep -qw memory /sys/fs/cgroup/cgroup.controllers
+          systemctl --version | head -n 1
+
+      - name: Run balanced pressure matrix
+        run: |
+          set -euo pipefail
+          mkdir -p sevenb-weight-prefetch-pressure
+          {
+            echo "commit=$GITHUB_SHA"
+            echo "model_sha256=$MODEL_SHA256"
+            echo "memory_max_mib=$MEMORY_MAX_MIB"
+            echo "slice_mib=$SLICE_MIB cache_mib=$CACHE_MIB budget_mib=$PREFETCH_BUDGET_MIB"
+            echo "adaptive_start=$PREFETCH_DEPTH min=$PREFETCH_MIN_DEPTH max=$PREFETCH_MAX_DEPTH window=$PREFETCH_WINDOW passes=$PASSES reps=$REPS"
+            echo "fixed_depth_sweep=1,2,3,4"
+            uname -a
+            lscpu
+            free -h
+          } > sevenb-weight-prefetch-pressure/environment.txt
+
+          seq=0
+          run_one() {
+            label="$1"; mode="$2"; depth="$3"; rep="$4"; seq=$((seq+1))
+            unit="memvanta-prefetch-${label}-${rep}-${seq}-${GITHUB_RUN_ID}"
+            out="sevenb-weight-prefetch-pressure/${label}-${rep}.txt"
+            err="sevenb-weight-prefetch-pressure/${label}-${rep}.err.txt"
+            set +e
+            sudo systemd-run --quiet --wait --pipe --unit="$unit" \
+              -p "MemoryMax=${MEMORY_MAX_MIB}M" -p MemorySwapMax=0 -p MemoryAccounting=yes \
+              /usr/bin/env -C "$GITHUB_WORKSPACE" ./build-prefetch/memvanta_bench "$MODEL" \
+              --mode "$mode" --slice-mib "$SLICE_MIB" --cache-mib "$CACHE_MIB" \
+              --budget-mib "$PREFETCH_BUDGET_MIB" --passes "$PASSES" \
+              --depth "$depth" --min-depth "$PREFETCH_MIN_DEPTH" \
+              --max-depth "$PREFETCH_MAX_DEPTH" --window "$PREFETCH_WINDOW" \
+              >"$out" 2>"$err"
+            rc=$?
+            result="$(sudo systemctl show "${unit}.service" -p Result --value 2>/dev/null || true)"
+            exec_rc="$(sudo systemctl show "${unit}.service" -p ExecMainStatus --value 2>/dev/null || true)"
+            sudo systemctl reset-failed "${unit}.service" >/dev/null 2>&1 || true
+            sudo systemctl stop "${unit}.service" >/dev/null 2>&1 || true
+            set -e
+            if [ "$rc" -ne 0 ] || [ "${exec_rc:-0}" -ne 0 ] || { [ -n "$result" ] && [ "$result" != success ]; }; then
+              cat "$out" || true
+              cat "$err" >&2 || true
+              echo "pressure run failed: label=$label mode=$mode depth=$depth rep=$rep launcher=$rc exec=${exec_rc:-unknown} result=${result:-unknown}" >&2
+              exit 1
+            fi
+            printf 'label=%s requested_depth=%s ' "$label" "$depth"
+            cat "$out"
+          }
+
+          for rep in $(seq 1 "$REPS"); do
+            if [ $((rep % 2)) -eq 1 ]; then
+              run_one none none 0 "$rep"
+              run_one fixed1 fixed 1 "$rep"
+              run_one fixed2 fixed 2 "$rep"
+              run_one fixed3 fixed 3 "$rep"
+              run_one fixed4 fixed 4 "$rep"
+              run_one adaptive adaptive "$PREFETCH_DEPTH" "$rep"
+            else
+              run_one adaptive adaptive "$PREFETCH_DEPTH" "$rep"
+              run_one fixed4 fixed 4 "$rep"
+              run_one fixed3 fixed 3 "$rep"
+              run_one fixed2 fixed 2 "$rep"
+              run_one fixed1 fixed 1 "$rep"
+              run_one none none 0 "$rep"
+            fi
+          done
+
+      - name: Validate checksum, memory ceiling and adaptive competitiveness
+        run: |
+          python3 - <<'PY'
+          import json, os, pathlib, re, statistics
+          root=pathlib.Path('sevenb-weight-prefetch-pressure')
+          reps=int(os.environ['REPS'])
+          configured_budget=int(os.environ['PREFETCH_BUDGET_MIB'])*(1<<20)
+          cache_bytes=int(os.environ['CACHE_MIB'])*(1<<20)
+          expected_adaptive_budget=min(configured_budget,cache_bytes//2)
+          slice_mib=float(os.environ['SLICE_MIB'])
+          labels=['none','fixed1','fixed2','fixed3','fixed4','adaptive']
+          def parse(path):
+              text=path.read_text()
+              vals=dict(re.findall(r'(\w+)=([^\s]+)',text))
+              required=['throughput_gib_s','peak_rss_mib','checksum','requests','useful','unused','peak_inflight_bytes','budget_bytes','final_depth','min_depth','max_depth','adjustments_up','adjustments_down']
+              missing=[x for x in required if x not in vals]
+              if missing: raise SystemExit(f'{path}: missing {missing}')
+              return {k:float(v) if k in {'throughput_gib_s','peak_rss_mib'} else int(v) for k,v in vals.items() if k in required or k in {'skipped_budget','bytes_requested','bytes_useful','bytes_unused'}}
+          data={m:[parse(root/f'{m}-{r}.txt') for r in range(1,reps+1)] for m in labels}
+          checksums={x['checksum'] for rows in data.values() for x in rows}
+          if len(checksums)!=1: raise SystemExit(f'checksum mismatch across modes: {checksums}')
+          for label,rows in data.items():
+              for x in rows:
+                  reported=x['budget_bytes']
+                  expected=expected_adaptive_budget if label=='adaptive' else configured_budget
+                  if reported != expected:
+                      raise SystemExit(f'{label} reported budget {reported}, expected {expected}')
+                  if x['peak_inflight_bytes']>reported:
+                      raise SystemExit(f'{label} exceeded its reported prefetch budget')
+          if not any(x['requests']>0 and x['useful']>0 for x in data['adaptive']):
+              raise SystemExit('adaptive prefetch produced no useful look-ahead requests')
+          mean_t={m:statistics.mean(x['throughput_gib_s'] for x in rows) for m,rows in data.items()}
+          mean_rss={m:statistics.mean(x['peak_rss_mib'] for x in rows) for m,rows in data.items()}
+          fixed_labels=['fixed1','fixed2','fixed3','fixed4']
+          best_fixed=max(fixed_labels,key=lambda m:mean_t[m])
+          vs_none=(mean_t['adaptive']/mean_t['none']-1.0)*100.0
+          vs_best_fixed=(mean_t['adaptive']/mean_t[best_fixed]-1.0)*100.0
+          rss_vs_best_fixed=mean_rss['adaptive']-mean_rss[best_fixed]
+          rss_allowance=slice_mib+8.0
+          summary={'means_gib_s':mean_t,'means_peak_rss_mib':mean_rss,'best_fixed':best_fixed,'adaptive_vs_none_pct':vs_none,'adaptive_vs_best_fixed_pct':vs_best_fixed,'adaptive_rss_growth_vs_best_fixed_mib':rss_vs_best_fixed,'adaptive_rss_allowance_mib':rss_allowance,'configured_budget_bytes':configured_budget,'adaptive_effective_budget_bytes':expected_adaptive_budget,'checksum':next(iter(checksums))}
+          (root/'summary.json').write_text(json.dumps(summary,indent=2)+'\n')
+          print(json.dumps(summary,indent=2))
+          # The best fixed depth is an offline oracle for this homogeneous stream.
+          # The online controller must materially beat no-prefetch, stay close to
+          # that oracle, and avoid a material peak-RSS exploration penalty.
+          if vs_none < 0.5:
+              raise SystemExit(f'adaptive prefetch benefit over no-prefetch too small: {vs_none:.2f}% < 0.5%')
+          if vs_best_fixed < -2.0:
+              raise SystemExit(f'adaptive prefetch too far behind {best_fixed}: {vs_best_fixed:.2f}% < -2.0%')
+          if rss_vs_best_fixed > rss_allowance:
+              raise SystemExit(f'adaptive RSS growth over {best_fixed} is too high: {rss_vs_best_fixed:.2f} MiB > {rss_allowance:.2f} MiB')
+          PY
+
+      - name: Upload pressure evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: memvanta-sevenb-weight-prefetch-pressure
+          path: sevenb-weight-prefetch-pressure/**
+          if-no-files-found: error
+          retention-days: 30
