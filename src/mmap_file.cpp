@@ -25,7 +25,6 @@ void MMapFile::open(const std::string& path){
 void MMapFile::close(){if(data_){munmap(data_,static_cast<std::size_t>(size_));data_=nullptr;}if(fd_>=0){::close(fd_);fd_=-1;}size_=0;}
 void MMapFile::advise_range(std::uint64_t off,std::uint64_t len,int advice) const {
   if(!data_||!len||off>=size_)return;
-  std::lock_guard<std::mutex> advice_lock(advice_mu_);
   const long raw_page=sysconf(_SC_PAGESIZE);if(raw_page<=0){advice_attempts_.fetch_add(1);advice_failures_.fetch_add(1);return;}
   const auto page=static_cast<std::uint64_t>(raw_page);
   const auto end=off+std::min<std::uint64_t>(len,size_-off);
