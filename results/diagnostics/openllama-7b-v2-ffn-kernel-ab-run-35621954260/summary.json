@@ -1,0 +1,168 @@
+{
+  "baseline_commit": "02e3c8b2bf53d1c78d4f55d7a851f8f246fa8090",
+  "candidate_commit": "f6ac7f85db90a6f4c4734a252347cd134cbf55a1",
+  "reps": 3,
+  "performance_tolerance_pct": 2.0,
+  "aggregate": {
+    "prefill_ms": {
+      "baseline": {
+        "mean": 32116.966666666667,
+        "stdev": 2656.800107899223,
+        "values": [
+          35184.7,
+          30564.5,
+          30601.7
+        ]
+      },
+      "optimized": {
+        "mean": 35200.03333333333,
+        "stdev": 152.4351118782457,
+        "values": [
+          35341.8,
+          35219.5,
+          35038.8
+        ]
+      },
+      "improvement_pct": -9.599495178560861
+    },
+    "decode_total_ms": {
+      "baseline": {
+        "mean": 9657.976666666667,
+        "stdev": 15.736913081457063,
+        "values": [
+          9652.32,
+          9645.85,
+          9675.76
+        ]
+      },
+      "optimized": {
+        "mean": 9660.343333333332,
+        "stdev": 14.35629943033156,
+        "values": [
+          9673.91,
+          9661.81,
+          9645.31
+        ]
+      },
+      "improvement_pct": -0.02450478757971358
+    },
+    "ffn_gemm_ms": {
+      "baseline": {
+        "mean": 24902.46,
+        "stdev": 1815.1061722940606,
+        "values": [
+          26998.12,
+          23826.93,
+          23882.33
+        ]
+      },
+      "optimized": {
+        "mean": 26860.48,
+        "stdev": 114.71652496480205,
+        "values": [
+          26969.18,
+          26871.69,
+          26740.57
+        ]
+      },
+      "improvement_pct": -7.862757334014393
+    },
+    "qkv_projection_ms": {
+      "baseline": {
+        "mean": 9292.776666666667,
+        "stdev": 615.0262109319681,
+        "values": [
+          10002.93,
+          8933.35,
+          8942.05
+        ]
+      },
+      "optimized": {
+        "mean": 9974.263333333332,
+        "stdev": 26.075675127085255,
+        "values": [
+          9997.88,
+          9978.63,
+          9946.28
+        ]
+      },
+      "improvement_pct": -7.333509575358342
+    },
+    "attention_output_projection_ms": {
+      "baseline": {
+        "mean": 3107.32,
+        "stdev": 214.82812758109668,
+        "values": [
+          3355.14,
+          2973.92,
+          2992.9
+        ]
+      },
+      "optimized": {
+        "mean": 3336.653333333333,
+        "stdev": 8.287558949010934,
+        "values": [
+          3345.93,
+          3334.05,
+          3329.98
+        ]
+      },
+      "improvement_pct": -7.380422142982796
+    },
+    "output_head_ms": {
+      "baseline": {
+        "mean": 3392.69,
+        "stdev": 2.1117054718876305,
+        "values": [
+          3390.37,
+          3394.5,
+          3393.2
+        ]
+      },
+      "optimized": {
+        "mean": 3391.403333333333,
+        "stdev": 1.0210452161061685,
+        "values": [
+          3391.35,
+          3392.45,
+          3390.41
+        ]
+      },
+      "improvement_pct": 0.037924675306817326
+    },
+    "non_gemm_core_ms": {
+      "baseline": {
+        "mean": 1079.0966666666666,
+        "stdev": 11.83155667413766,
+        "values": [
+          1089.83,
+          1081.05,
+          1066.41
+        ]
+      },
+      "optimized": {
+        "mean": 1296.9733333333334,
+        "stdev": 18.223557098803017,
+        "values": [
+          1310.75,
+          1303.86,
+          1276.31
+        ]
+      },
+      "improvement_pct": -20.190653293341047
+    }
+  },
+  "rss_kib": {
+    "baseline_mean": 3810673.3333333335,
+    "candidate_mean": 3819161.3333333335,
+    "growth_pct": 0.22274278736391293
+  },
+  "total_improvement_pct": -7.385846842959994,
+  "ffn_improvement_pct": -7.862757334014393,
+  "gate": {
+    "ffn_within_noise_guardrail": false,
+    "total_within_noise_guardrail": false,
+    "rss_growth_le_2pct": true,
+    "pass": false
+  }
+}
