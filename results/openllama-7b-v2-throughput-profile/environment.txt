@@ -1,7 +1,7 @@
 model=openlm-research-open_llama_7b_v2-Q4_0.gguf
 892f6e2e840ed98bb7bc1d74da67ae0cca52b2d90b0316d0a7e66a37a5a60760  openlm-research-open_llama_7b_v2-Q4_0.gguf
 model_bytes=3825818912
-memvanta_commit=f6ac7f85db90a6f4c4734a252347cd134cbf55a1
+memvanta_commit=e4286f8c593b12fc8114919e5fd282082e0fc263
 profile_schema=2
 threads=4 prompt=128 gen=16 ctx=256 batch=32 kv=f16
 Linux runnervmlun5p 6.17.0-1022-azure #22-Ubuntu SMP Mon Jul 27 17:24:03 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux
@@ -50,5 +50,5 @@ Vulnerability Tsa:                       Vulnerable: No microcode
 Vulnerability Tsx async abort:           Not affected
 Vulnerability Vmscape:                   Not affected
                total        used        free      shared  buff/cache   available
-Mem:            15Gi       982Mi       8.3Gi        45Mi       6.8Gi        14Gi
+Mem:            15Gi       1.0Gi       8.2Gi        45Mi       6.8Gi        14Gi
 Swap:          3.0Gi          0B       3.0Gi
