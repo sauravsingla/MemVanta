@@ -91,13 +91,16 @@ int main(){
     memvanta::TensorStore store(path,4096);
     memvanta::RunConfig fixed{16384,2,2,true};
     auto a=memvanta::Runtime(store,fixed).run_stream();
-    memvanta::RunConfig adaptive{16384,2,2,true}; adaptive.adaptive_prefetch=true; adaptive.adaptive_min_depth=1; adaptive.adaptive_max_depth=3; adaptive.adaptive_window=2;
+    memvanta::RunConfig adaptive{16384,2,3,true}; adaptive.adaptive_prefetch=true; adaptive.adaptive_min_depth=1; adaptive.adaptive_max_depth=3; adaptive.adaptive_window=2; adaptive.prefetch_budget_bytes=8192;
     auto b=memvanta::Runtime(store,adaptive).run_stream();
     CHECK_MSG(a.checksum==b.checksum,"adaptive prefetch changed the streamed result");
     CHECK(b.prefetch.final_depth>=1 && b.prefetch.final_depth<=3);
     CHECK(b.prefetch.min_depth_seen>=1 && b.prefetch.max_depth_seen<=3);
-    CHECK(b.prefetch.hot_set_budget_bytes==16384);
+    CHECK(b.prefetch.hot_set_budget_bytes==8192);
+    CHECK(b.prefetch.max_inflight_bytes<=8192);
+    CHECK(b.prefetch.skipped_budget>0);
     CHECK(b.prefetch.useful+b.prefetch.unused<=b.prefetch.requests);
+    CHECK(b.prefetch.bytes_useful+b.prefetch.bytes_unused<=b.prefetch.bytes_requested);
     std::remove(path);
   }
   if(memvanta_test::failures()){ std::cerr<<"FAILED\n"; return 1; }

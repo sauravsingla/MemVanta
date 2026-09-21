@@ -17,11 +17,12 @@ permissions:
 jobs:
   real-prefetch-ab:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 50
     env:
-      MODEL: stories15M-q4_0.gguf
-      MODEL_URL: https://huggingface.co/ggml-org/models-moved/resolve/main/tinyllamas/stories15M-q4_0.gguf?download=true
-      MODEL_SHA256: 66967fbece6dbe97886593fdbb73589584927e29119ec31f08090732d1861739
+      MODEL: TinyLlama-1.1B-Chat-v1.0.Q4_0.gguf
+      MODEL_URL: https://huggingface.co/QuantFactory/TinyLlama-1.1B-Chat-v1.0-GGUF/resolve/main/TinyLlama-1.1B-Chat-v1.0.Q4_0.gguf?download=true
+      MODEL_SHA256: 58d7f78ad80e6745d2148dc7391740c2de761da5791c853dec9a09b1f43a1ea9
+      PREFETCH_BUDGET_MIB: 128
     steps:
       - uses: actions/checkout@v4
       - name: Install dependencies
@@ -33,41 +34,57 @@ jobs:
           cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
           cmake --build build -j "$(nproc)"
           ctest --test-dir build --output-on-failure
-      - name: Download and verify TinyStories
+      - name: Download and verify TinyLlama
         run: |
           curl -L --fail --retry 3 --retry-delay 2 "$MODEL_URL" -o "$MODEL"
           echo "$MODEL_SHA256  $MODEL" | sha256sum -c -
-      - name: Run A/B matrix
+      - name: Run cold-page A/B matrix
         run: |
+          set -euo pipefail
           mkdir -p benchmark-evidence/issue12-real-prefetch
           for mode in none fixed adaptive; do
-            ./build/memvanta_issue12_real_prefetch_ab --model "$MODEL" --mode "$mode" --threads 4 --reps 5 --ctx 128 --prompt 32 --gen 8 --depth 2 --min-depth 1 --max-depth 4 --csv "benchmark-evidence/issue12-real-prefetch/${mode}.csv" | tee "benchmark-evidence/issue12-real-prefetch/${mode}.txt"
+            ./build/memvanta_issue12_real_prefetch_ab \
+              --model "$MODEL" --mode "$mode" --threads 4 --reps 3 \
+              --ctx 128 --prompt 16 --gen 4 --depth 2 --min-depth 1 --max-depth 4 \
+              --budget-mib "$PREFETCH_BUDGET_MIB" \
+              --csv "benchmark-evidence/issue12-real-prefetch/${mode}.csv" \
+              | tee "benchmark-evidence/issue12-real-prefetch/${mode}.txt"
           done
           python3 - <<'PY'
           import csv,re
           from pathlib import Path
           out=Path('benchmark-evidence/issue12-real-prefetch')
+          fields=['mode','pp_tps_median','tg_tps_median','peak_rss_mib','final_depth','budget_mib','max_prefetch_mib','max_prefetched_layers','minor_faults_median','major_faults_total','final_token']
           rows=[]
+          pattern=re.compile(r'mode=(\S+) threads=\d+ pp_tps_median=([0-9.eE+-]+) tg_tps_median=([0-9.eE+-]+) peak_rss_mib=([0-9.eE+-]+) final_depth=(\d+) budget_mib=(\d+) max_prefetch_mib=([0-9.eE+-]+) max_prefetched_layers=(\d+) minor_faults_median=([0-9.eE+-]+) major_faults_total=(\d+) final_token=(-?\d+)')
           for mode in ('none','fixed','adaptive'):
               t=(out/f'{mode}.txt').read_text()
-              m=re.search(r'pp_tps_median=([0-9.eE+-]+) tg_tps_median=([0-9.eE+-]+) peak_rss_mib=([0-9.eE+-]+) final_depth=([0-9]+)',t)
+              m=pattern.search(t)
               assert m, mode
-              rows.append((mode,*m.groups()))
+              rows.append(m.groups())
           with (out/'summary.csv').open('w',newline='') as f:
-              w=csv.writer(f);w.writerow(['mode','pp_tps_median','tg_tps_median','peak_rss_mib','final_depth']);w.writerows(rows)
+              w=csv.writer(f);w.writerow(fields);w.writerows(rows)
           print((out/'summary.csv').read_text())
           PY
-      - name: Validate evidence
+      - name: Validate bounded pressure evidence
         run: |
           python3 - <<'PY'
-          import csv
+          import csv, os
           from pathlib import Path
           rows=list(csv.DictReader(Path('benchmark-evidence/issue12-real-prefetch/summary.csv').open()))
           assert [r['mode'] for r in rows]==['none','fixed','adaptive']
+          budget=float(os.environ['PREFETCH_BUDGET_MIB'])
+          tokens={int(r['final_token']) for r in rows}
+          if len(tokens)!=1: raise SystemExit(f'prefetch mode changed deterministic output token: {tokens}')
           for r in rows:
-              assert float(r['pp_tps_median'])>0
-              assert float(r['tg_tps_median'])>0
-              assert float(r['peak_rss_mib'])>0
+              if float(r['pp_tps_median'])<=0 or float(r['tg_tps_median'])<=0 or float(r['peak_rss_mib'])<=0:
+                  raise SystemExit(f'invalid performance evidence: {r}')
+              if float(r['max_prefetch_mib'])>budget+0.01:
+                  raise SystemExit(f'prefetch budget exceeded: {r}')
+          if float(rows[0]['max_prefetch_mib'])!=0:
+              raise SystemExit('none mode unexpectedly prefetched model weights')
+          if int(rows[2]['final_depth'])<1 or int(rows[2]['final_depth'])>4:
+              raise SystemExit('adaptive depth escaped configured bounds')
           PY
       - name: Upload evidence
         if: always()
