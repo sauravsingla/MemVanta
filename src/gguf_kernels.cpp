@@ -146,14 +146,21 @@ inline float dot_q4_0_fp32(const GgufBlockQ4_0* blocks,const float*x,std::size_t
         const __m128i qlo=_mm_sub_epi8(_mm_and_si128(packed,mask),bias);
         const __m128i qhi=_mm_sub_epi8(_mm_and_si128(_mm_srli_epi16(packed,4),mask),bias);
         __m256 acc=_mm256_setzero_ps();
-        const auto qlo0=_mm256_cvtepi8_epi32(qlo);
-        const auto qlo8=_mm256_cvtepi8_epi32(_mm_srli_si128(qlo,8));
-        const auto qhi0=_mm256_cvtepi8_epi32(qhi);
-        const auto qhi8=_mm256_cvtepi8_epi32(_mm_srli_si128(qhi,8));
-        acc=_mm256_fmadd_ps(_mm256_cvtepi32_ps(qlo0),_mm256_loadu_ps(x+b*32),acc);
-        acc=_mm256_fmadd_ps(_mm256_cvtepi32_ps(qlo8),_mm256_loadu_ps(x+b*32+8),acc);
-        acc=_mm256_fmadd_ps(_mm256_cvtepi32_ps(qhi0),_mm256_loadu_ps(x+b*32+16),acc);
-        acc=_mm256_fmadd_ps(_mm256_cvtepi32_ps(qhi8),_mm256_loadu_ps(x+b*32+24),acc);
+#if defined(__OPTIMIZE__)
+        // Preserve the original hot Release loop shape. At -O3 GCC/Clang
+        // unroll k={0,8} and satisfy the immediate-shift intrinsic exactly as
+        // the benchmarked main-branch kernel did.
+        for(int k=0;k<16;k+=8){auto qi=_mm256_cvtepi8_epi32(_mm_srli_si128(qlo,k));acc=_mm256_fmadd_ps(_mm256_cvtepi32_ps(qi),_mm256_loadu_ps(x+b*32+k),acc);}
+        for(int k=0;k<16;k+=8){auto qi=_mm256_cvtepi8_epi32(_mm_srli_si128(qhi,k));acc=_mm256_fmadd_ps(_mm256_cvtepi32_ps(qi),_mm256_loadu_ps(x+b*32+16+k),acc);}
+#else
+        // At -O0 the shift count must be syntactically immediate; keep the
+        // same arithmetic ordering without holding four converted vectors
+        // live simultaneously.
+        {auto qi=_mm256_cvtepi8_epi32(qlo);acc=_mm256_fmadd_ps(_mm256_cvtepi32_ps(qi),_mm256_loadu_ps(x+b*32),acc);}
+        {auto qi=_mm256_cvtepi8_epi32(_mm_srli_si128(qlo,8));acc=_mm256_fmadd_ps(_mm256_cvtepi32_ps(qi),_mm256_loadu_ps(x+b*32+8),acc);}
+        {auto qi=_mm256_cvtepi8_epi32(qhi);acc=_mm256_fmadd_ps(_mm256_cvtepi32_ps(qi),_mm256_loadu_ps(x+b*32+16),acc);}
+        {auto qi=_mm256_cvtepi8_epi32(_mm_srli_si128(qhi,8));acc=_mm256_fmadd_ps(_mm256_cvtepi32_ps(qi),_mm256_loadu_ps(x+b*32+24),acc);}
+#endif
         alignas(32) float tmp[8];_mm256_store_ps(tmp,acc);float s=0;for(float v:tmp)s+=v;sum+=d*s;
 #else
         float s=0;for(std::size_t i=0;i<16;++i){s+=(int(blocks[b].qs[i]&15)-8)*x[b*32+i];s+=(int(blocks[b].qs[i]>>4)-8)*x[b*32+16+i];}sum+=d*s;
@@ -249,21 +256,26 @@ inline float dot_q4_q8(const GgufBlockQ4_0*w,const std::int8_t*aq,const float*ad
 inline void q4_row_batch4_fp32(const GgufBlockQ4_0*w,const float*x,std::size_t stride,std::size_t nb,float out[4]){
 #if defined(__AVX2__)
     __m256 a0=_mm256_setzero_ps(),a1=_mm256_setzero_ps(),a2=_mm256_setzero_ps(),a3=_mm256_setzero_ps();const __m128i mask=_mm_set1_epi8(0x0f),bias=_mm_set1_epi8(8);
+#if defined(__OPTIMIZE__)
+    // Keep the exact loop structure of the proven main-branch Release kernel.
+    // Optimized GCC/Clang fold k={0,8} to legal immediate shifts and retain
+    // the lower register pressure that the 7B A/B evidence depends on.
+    for(std::size_t bi=0;bi<nb;++bi){const __m256 ds=_mm256_set1_ps(kernel_fp16_to_fp32(w[bi].d));const __m128i packed=_mm_loadu_si128(reinterpret_cast<const __m128i*>(w[bi].qs));const __m128i lo=_mm_sub_epi8(_mm_and_si128(packed,mask),bias),hi=_mm_sub_epi8(_mm_and_si128(_mm_srli_epi16(packed,4),mask),bias);for(int h=0;h<2;++h){const __m128i src=h?hi:lo;for(int k=0;k<16;k+=8){__m256 q=_mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_cvtepi8_epi32(_mm_srli_si128(src,k))),ds);std::size_t off=bi*32+h*16+k;a0=_mm256_fmadd_ps(q,_mm256_loadu_ps(x+off),a0);a1=_mm256_fmadd_ps(q,_mm256_loadu_ps(x+stride+off),a1);a2=_mm256_fmadd_ps(q,_mm256_loadu_ps(x+2*stride+off),a2);a3=_mm256_fmadd_ps(q,_mm256_loadu_ps(x+3*stride+off),a3);}}}
+#else
+    // Debug cannot pass a loop variable to _mm_srli_si128. Spell out the two
+    // immediate shifts sequentially so Debug compiles without changing the
+    // optimized Release source/codegen.
     for(std::size_t bi=0;bi<nb;++bi){
         const __m256 ds=_mm256_set1_ps(kernel_fp16_to_fp32(w[bi].d));
         const __m128i packed=_mm_loadu_si128(reinterpret_cast<const __m128i*>(w[bi].qs));
         const __m128i lo=_mm_sub_epi8(_mm_and_si128(packed,mask),bias),hi=_mm_sub_epi8(_mm_and_si128(_mm_srli_epi16(packed,4),mask),bias);
         for(int h=0;h<2;++h){
-            const __m128i src=h?hi:lo;
-            const __m256 q0=_mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_cvtepi8_epi32(src)),ds);
-            const __m256 q8=_mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_cvtepi8_epi32(_mm_srli_si128(src,8))),ds);
-            const std::size_t off=bi*32+h*16;
-            a0=_mm256_fmadd_ps(q0,_mm256_loadu_ps(x+off),a0);a0=_mm256_fmadd_ps(q8,_mm256_loadu_ps(x+off+8),a0);
-            a1=_mm256_fmadd_ps(q0,_mm256_loadu_ps(x+stride+off),a1);a1=_mm256_fmadd_ps(q8,_mm256_loadu_ps(x+stride+off+8),a1);
-            a2=_mm256_fmadd_ps(q0,_mm256_loadu_ps(x+2*stride+off),a2);a2=_mm256_fmadd_ps(q8,_mm256_loadu_ps(x+2*stride+off+8),a2);
-            a3=_mm256_fmadd_ps(q0,_mm256_loadu_ps(x+3*stride+off),a3);a3=_mm256_fmadd_ps(q8,_mm256_loadu_ps(x+3*stride+off+8),a3);
+            const __m128i src=h?hi:lo;const std::size_t off=bi*32+h*16;
+            {__m256 q=_mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_cvtepi8_epi32(src)),ds);a0=_mm256_fmadd_ps(q,_mm256_loadu_ps(x+off),a0);a1=_mm256_fmadd_ps(q,_mm256_loadu_ps(x+stride+off),a1);a2=_mm256_fmadd_ps(q,_mm256_loadu_ps(x+2*stride+off),a2);a3=_mm256_fmadd_ps(q,_mm256_loadu_ps(x+3*stride+off),a3);}
+            {__m256 q=_mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_cvtepi8_epi32(_mm_srli_si128(src,8))),ds);a0=_mm256_fmadd_ps(q,_mm256_loadu_ps(x+off+8),a0);a1=_mm256_fmadd_ps(q,_mm256_loadu_ps(x+stride+off+8),a1);a2=_mm256_fmadd_ps(q,_mm256_loadu_ps(x+2*stride+off+8),a2);a3=_mm256_fmadd_ps(q,_mm256_loadu_ps(x+3*stride+off+8),a3);}
         }
     }
+#endif
     alignas(32)float t[8];auto hs=[&](const __m256&v){_mm256_store_ps(t,v);return t[0]+t[1]+t[2]+t[3]+t[4]+t[5]+t[6]+t[7];};out[0]=hs(a0);out[1]=hs(a1);out[2]=hs(a2);out[3]=hs(a3);
 #else
     for(int j=0;j<4;++j)out[j]=dot_q4_0_fp32(w,x+j*stride,nb*32);
