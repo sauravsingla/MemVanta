@@ -45,7 +45,9 @@ RunStats Runtime::run_stream(){
       const auto item_start=std::chrono::steady_clock::now();
       if(auto it=requested.find(i);it!=requested.end()){
         const auto bytes=it->second;
-        const bool ready=cfg_.copy_cache&&cache_.contains(i);
+        // mmap-only prefetch is advisory and has no copy-cache residency bit to
+        // inspect; reaching the requested slice is therefore the useful event.
+        const bool ready=!cfg_.copy_cache||cache_.contains(i);
         if(ready){++pf.useful;pf.bytes_useful+=bytes;++window_useful;}
         else {++pf.unused;++pf.late;pf.bytes_unused+=bytes;}
         ++window_consumed;
@@ -87,11 +89,13 @@ RunStats Runtime::run_stream(){
       if(cfg_.adaptive_prefetch && window_items>=cfg_.adaptive_window){
         const double avg=window_ms/window_items;
         const auto evictions=cache_.stats().evictions;
-        const bool eviction_pressure=cfg_.copy_cache&&evictions>previous_evictions;
         const bool have_usefulness=window_consumed>=2;
         const double useful_ratio=window_consumed?double(window_useful)/double(window_consumed):1.0;
         const bool low_usefulness=have_usefulness&&useful_ratio<0.50;
         const bool high_usefulness=have_usefulness&&useful_ratio>=0.75;
+        // Sequential streaming naturally evicts old cache entries. Only treat
+        // turnover as pressure when the look-ahead itself is not proving useful.
+        const bool eviction_pressure=cfg_.copy_cache&&evictions>previous_evictions&&have_usefulness&&!high_usefulness;
         const bool latency_regression=previous_window_ms<std::numeric_limits<double>::infinity()&&avg>previous_window_ms*1.05;
         const bool latency_stable=previous_window_ms<std::numeric_limits<double>::infinity()&&avg<=previous_window_ms*1.01;
         if(eviction_pressure||low_usefulness||latency_regression){
