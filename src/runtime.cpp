@@ -84,6 +84,7 @@ RunStats Runtime::run_stream() {
     std::uint32_t window_items = 0;
     std::uint64_t window_consumed = 0;
     std::uint64_t window_useful = 0;
+    std::uint64_t window_late = 0;
     std::uint64_t window_budget_skips = 0;
 
     for (std::uint32_t p = 0; p < cfg_.passes; ++p) {
@@ -105,6 +106,7 @@ RunStats Runtime::run_stream() {
                 } else {
                     ++pf.unused;
                     ++pf.late;
+                    ++window_late;
                     pf.bytes_unused += bytes;
                 }
                 ++window_consumed;
@@ -171,6 +173,7 @@ RunStats Runtime::run_stream() {
                 const auto decision = controller.observe({average_item_ms,
                                                           window_consumed,
                                                           window_useful,
+                                                          window_late,
                                                           window_budget_skips,
                                                           cache_.stats().evictions,
                                                           window_peak_inflight,
@@ -186,6 +189,7 @@ RunStats Runtime::run_stream() {
                 window_items = 0;
                 window_consumed = 0;
                 window_useful = 0;
+                window_late = 0;
                 window_budget_skips = 0;
                 window_peak_inflight = 0;
                 pf.min_depth_seen = std::min(pf.min_depth_seen, depth);
