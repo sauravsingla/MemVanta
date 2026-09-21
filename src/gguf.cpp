@@ -7,9 +7,12 @@
 
 namespace memvanta {
 namespace {
+
+std::uint64_t checked_mul(std::uint64_t a,std::uint64_t b,const char* what){if(a&&b>std::numeric_limits<std::uint64_t>::max()/a)throw std::runtime_error(what);return a*b;}
+
 class Reader {
 public:
-    Reader(const std::byte* p, std::uint64_t n): p_(p), n_(n) {}
+    Reader(const std::byte* p,std::uint64_t n,const GgufParseLimits& limits):p_(p),n_(n),limits_(limits),heap_remaining_(limits.max_parse_heap_bytes){}
     std::uint64_t pos() const { return off_; }
     std::uint64_t remaining() const { return n_-off_; }
     template<class T> T read() {
@@ -17,16 +20,21 @@ public:
         require(sizeof(T)); T v{}; std::memcpy(&v,p_+off_,sizeof(T)); off_ += sizeof(T); return v;
     }
     std::string str() {
-        auto len=read<std::uint64_t>(); require(len);
-        if(len>std::numeric_limits<std::size_t>::max()) throw std::runtime_error("GGUF string too large");
-        std::string s(reinterpret_cast<const char*>(p_+off_), static_cast<std::size_t>(len)); off_ += len; return s;
+        const auto len=read<std::uint64_t>();
+        if(len>limits_.max_string_bytes) throw std::runtime_error("GGUF string exceeds parser limit");
+        if(len>std::numeric_limits<std::size_t>::max()) throw std::runtime_error("GGUF string too large for address space");
+        require(len);charge(len);
+        std::string s(reinterpret_cast<const char*>(p_+off_),static_cast<std::size_t>(len));off_+=len;return s;
     }
-    void require(std::uint64_t k) const { if (k > n_ || off_ > n_-k) throw std::runtime_error("truncated GGUF"); }
+    void require(std::uint64_t k) const { if(k>n_||off_>n_-k) throw std::runtime_error("truncated GGUF"); }
+    void charge(std::uint64_t bytes){if(bytes>heap_remaining_)throw std::runtime_error("GGUF parse memory budget exceeded");heap_remaining_-=bytes;}
+    std::uint64_t max_array_elements() const { return limits_.max_array_elements; }
 private:
-    const std::byte* p_{}; std::uint64_t n_{}; std::uint64_t off_{};
+    const std::byte* p_{};std::uint64_t n_{};std::uint64_t off_{};
+    const GgufParseLimits& limits_;
+    std::uint64_t heap_remaining_{};
 };
 
-std::uint64_t checked_mul(std::uint64_t a,std::uint64_t b,const char* what){if(a&&b>std::numeric_limits<std::uint64_t>::max()/a)throw std::runtime_error(what);return a*b;}
 std::uint64_t quant_row_block(GgmlType type){
     switch(type){
         case GgmlType::Q4_0: case GgmlType::Q4_1: case GgmlType::Q5_0: case GgmlType::Q5_1: case GgmlType::Q8_0: return 32;
@@ -40,8 +48,8 @@ std::uint64_t as_unsigned(const GgufValue& v) {
     if (auto p=std::get_if<std::int64_t>(&v.data)) { if (*p<0) throw std::runtime_error("negative metadata value"); return static_cast<std::uint64_t>(*p); }
     throw std::runtime_error("metadata value is not integer");
 }
-GgufValue read_scalar(Reader& r, GgufValueType t) {
-    GgufValue v; v.type=t;
+GgufValue read_scalar(Reader& r,GgufValueType t) {
+    GgufValue v;v.type=t;
     switch(t) {
         case GgufValueType::UInt8: v.data=static_cast<std::uint64_t>(r.read<std::uint8_t>()); break;
         case GgufValueType::Int8: v.data=static_cast<std::int64_t>(r.read<std::int8_t>()); break;
@@ -50,8 +58,8 @@ GgufValue read_scalar(Reader& r, GgufValueType t) {
         case GgufValueType::UInt32: v.data=static_cast<std::uint64_t>(r.read<std::uint32_t>()); break;
         case GgufValueType::Int32: v.data=static_cast<std::int64_t>(r.read<std::int32_t>()); break;
         case GgufValueType::Float32: v.data=static_cast<double>(r.read<float>()); break;
-        case GgufValueType::Bool: v.data=static_cast<bool>(r.read<std::uint8_t>() != 0); break;
-        case GgufValueType::String: v.data=r.str(); break;
+        case GgufValueType::Bool: v.data=static_cast<bool>(r.read<std::uint8_t>()!=0); break;
+        case GgufValueType::String: r.charge(sizeof(std::string));v.data=r.str(); break;
         case GgufValueType::UInt64: v.data=r.read<std::uint64_t>(); break;
         case GgufValueType::Int64: v.data=r.read<std::int64_t>(); break;
         case GgufValueType::Float64: v.data=r.read<double>(); break;
@@ -60,24 +68,27 @@ GgufValue read_scalar(Reader& r, GgufValueType t) {
     }
     return v;
 }
-GgufValue read_value(Reader& r, GgufValueType t) {
-    if (t != GgufValueType::Array) return read_scalar(r,t);
+GgufValue read_value(Reader& r,GgufValueType t) {
+    if(t!=GgufValueType::Array)return read_scalar(r,t);
     const auto elem=static_cast<GgufValueType>(r.read<std::uint32_t>());
-    if(elem==GgufValueType::Array) throw std::runtime_error("nested GGUF arrays are unsupported");
+    if(elem==GgufValueType::Array)throw std::runtime_error("nested GGUF arrays are unsupported");
     const auto n=r.read<std::uint64_t>();
-    if(n>std::numeric_limits<std::size_t>::max()) throw std::runtime_error("GGUF array too large");
-    GgufValue v; v.type=GgufValueType::Array;
-    if (elem==GgufValueType::String) {
-        if(n>r.remaining()/sizeof(std::uint64_t)) throw std::runtime_error("truncated GGUF string array");
-        GgufValue::StringArray a; a.reserve(static_cast<std::size_t>(n));
-        for(std::uint64_t i=0;i<n;++i) a.push_back(r.str()); v.data=std::move(a); return v;
+    if(n>r.max_array_elements())throw std::runtime_error("GGUF array exceeds parser element limit");
+    if(n>std::numeric_limits<std::size_t>::max())throw std::runtime_error("GGUF array too large for address space");
+    GgufValue v;v.type=GgufValueType::Array;
+    if(elem==GgufValueType::String){
+        if(n>r.remaining()/sizeof(std::uint64_t))throw std::runtime_error("truncated GGUF string array");
+        r.charge(checked_mul(n,sizeof(std::string),"GGUF string array allocation overflow"));
+        GgufValue::StringArray a;a.reserve(static_cast<std::size_t>(n));
+        for(std::uint64_t i=0;i<n;++i)a.push_back(r.str());v.data=std::move(a);return v;
     }
-    if (elem==GgufValueType::Float32 || elem==GgufValueType::Float64) {
+    if(elem==GgufValueType::Float32||elem==GgufValueType::Float64){
         const std::uint64_t width=elem==GgufValueType::Float32?sizeof(float):sizeof(double);
-        if(n>r.remaining()/width) throw std::runtime_error("truncated GGUF float array");
-        GgufValue::FloatArray a; a.reserve(static_cast<std::size_t>(n));
-        for(std::uint64_t i=0;i<n;++i) a.push_back(elem==GgufValueType::Float32 ? static_cast<double>(r.read<float>()) : r.read<double>());
-        v.data=std::move(a); return v;
+        if(n>r.remaining()/width)throw std::runtime_error("truncated GGUF float array");
+        r.charge(checked_mul(n,sizeof(double),"GGUF float array allocation overflow"));
+        GgufValue::FloatArray a;a.reserve(static_cast<std::size_t>(n));
+        for(std::uint64_t i=0;i<n;++i)a.push_back(elem==GgufValueType::Float32?static_cast<double>(r.read<float>()):r.read<double>());
+        v.data=std::move(a);return v;
     }
     std::uint64_t width=0;
     switch(elem){
@@ -87,16 +98,17 @@ GgufValue read_value(Reader& r, GgufValueType t) {
         case GgufValueType::UInt64: case GgufValueType::Int64: width=8; break;
         default: throw std::runtime_error("unsupported GGUF array element type");
     }
-    if(n>r.remaining()/width) throw std::runtime_error("truncated GGUF integer array");
-    GgufValue::IntArray a; a.reserve(static_cast<std::size_t>(n));
-    for(std::uint64_t i=0;i<n;++i) {
+    if(n>r.remaining()/width)throw std::runtime_error("truncated GGUF integer array");
+    r.charge(checked_mul(n,sizeof(std::int64_t),"GGUF integer array allocation overflow"));
+    GgufValue::IntArray a;a.reserve(static_cast<std::size_t>(n));
+    for(std::uint64_t i=0;i<n;++i){
         auto sv=read_scalar(r,elem);
         if(auto p=std::get_if<std::uint64_t>(&sv.data)){if(*p>static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max()))throw std::runtime_error("GGUF integer array value exceeds int64");a.push_back(static_cast<std::int64_t>(*p));}
-        else if(auto p=std::get_if<std::int64_t>(&sv.data)) a.push_back(*p);
-        else if(auto p=std::get_if<bool>(&sv.data)) a.push_back(*p?1:0);
+        else if(auto p=std::get_if<std::int64_t>(&sv.data))a.push_back(*p);
+        else if(auto p=std::get_if<bool>(&sv.data))a.push_back(*p?1:0);
         else throw std::runtime_error("unsupported GGUF array element type");
     }
-    v.data=std::move(a); return v;
+    v.data=std::move(a);return v;
 }
 }
 
@@ -143,23 +155,28 @@ float fp16_to_fp32(std::uint16_t h) {
     return std::bit_cast<float>(out);
 }
 
-GgufFile::GgufFile(const std::string& path): file_(path) {
-    Reader r(file_.data(),file_.size());
-    char magic[5]{}; for(int i=0;i<4;++i) magic[i]=static_cast<char>(r.read<std::uint8_t>());
-    if(std::string(magic,4)!="GGUF") throw std::runtime_error("not a GGUF file");
-    version_=r.read<std::uint32_t>(); if(version_<2 || version_>3) throw std::runtime_error("unsupported GGUF version: "+std::to_string(version_));
-    const auto nt=r.read<std::uint64_t>(), nkv=r.read<std::uint64_t>();
-    if(nt>1000000 || nkv>1000000) throw std::runtime_error("implausible GGUF counts");
-    for(std::uint64_t i=0;i<nkv;++i){ auto key=r.str(); auto type=static_cast<GgufValueType>(r.read<std::uint32_t>()); auto value=read_value(r,type); if(!metadata_.emplace(std::move(key),std::move(value)).second) throw std::runtime_error("duplicate GGUF metadata key"); }
+GgufFile::GgufFile(const std::string& path,GgufParseLimits limits):file_(path) {
+    Reader r(file_.data(),file_.size(),limits);
+    char magic[5]{};for(int i=0;i<4;++i)magic[i]=static_cast<char>(r.read<std::uint8_t>());
+    if(std::string(magic,4)!="GGUF")throw std::runtime_error("not a GGUF file");
+    version_=r.read<std::uint32_t>();if(version_<2||version_>3)throw std::runtime_error("unsupported GGUF version: "+std::to_string(version_));
+    const auto nt=r.read<std::uint64_t>(),nkv=r.read<std::uint64_t>();
+    if(nt>limits.max_tensors||nkv>limits.max_metadata_items)throw std::runtime_error("GGUF item count exceeds parser limit");
+    if(nt>std::numeric_limits<std::size_t>::max()||nkv>std::numeric_limits<std::size_t>::max())throw std::runtime_error("GGUF item count exceeds address space");
+    r.charge(checked_mul(nkv,128,"GGUF metadata container budget overflow"));
+    metadata_.reserve(static_cast<std::size_t>(nkv));
+    for(std::uint64_t i=0;i<nkv;++i){auto key=r.str();auto type=static_cast<GgufValueType>(r.read<std::uint32_t>());auto value=read_value(r,type);if(!metadata_.emplace(std::move(key),std::move(value)).second)throw std::runtime_error("duplicate GGUF metadata key");}
     struct Tmp{std::string name;std::vector<std::uint64_t>dims;GgmlType type;std::uint64_t rel;};
-    std::vector<Tmp> tmp; tmp.reserve(static_cast<std::size_t>(nt));
-    for(std::uint64_t i=0;i<nt;++i){ Tmp t; t.name=r.str(); auto nd=r.read<std::uint32_t>(); if(nd==0||nd>4) throw std::runtime_error("invalid tensor dimensions"); t.dims.resize(nd); for(auto&d:t.dims){d=r.read<std::uint64_t>();if(!d)throw std::runtime_error("zero tensor dimension: "+t.name);} t.type=static_cast<GgmlType>(r.read<std::uint32_t>()); t.rel=r.read<std::uint64_t>(); tmp.push_back(std::move(t)); }
-    std::uint64_t align=32; if(auto it=metadata_.find("general.alignment");it!=metadata_.end()) align=as_unsigned(it->second); if(!align || (align&(align-1))) throw std::runtime_error("invalid GGUF alignment");
-    if(r.pos()>std::numeric_limits<std::uint64_t>::max()-(align-1)) throw std::runtime_error("GGUF data offset overflow");
+    r.charge(checked_mul(nt,sizeof(Tmp)+64,"GGUF tensor descriptor budget overflow"));
+    std::vector<Tmp> tmp;tmp.reserve(static_cast<std::size_t>(nt));
+    for(std::uint64_t i=0;i<nt;++i){Tmp t;t.name=r.str();auto nd=r.read<std::uint32_t>();if(nd==0||nd>4)throw std::runtime_error("invalid tensor dimensions");r.charge(checked_mul(nd,sizeof(std::uint64_t),"GGUF tensor dimension budget overflow"));t.dims.resize(nd);for(auto&d:t.dims){d=r.read<std::uint64_t>();if(!d)throw std::runtime_error("zero tensor dimension: "+t.name);}t.type=static_cast<GgmlType>(r.read<std::uint32_t>());t.rel=r.read<std::uint64_t>();tmp.push_back(std::move(t));}
+    std::uint64_t align=32;if(auto it=metadata_.find("general.alignment");it!=metadata_.end())align=as_unsigned(it->second);if(!align||(align&(align-1)))throw std::runtime_error("invalid GGUF alignment");
+    if(r.pos()>std::numeric_limits<std::uint64_t>::max()-(align-1))throw std::runtime_error("GGUF data offset overflow");
     data_offset_=(r.pos()+align-1)&~(align-1);
-    if(nt && data_offset_>file_.size()) throw std::runtime_error("GGUF data section starts beyond file bounds");
-    tensors_.reserve(tmp.size());
-    for(auto&t:tmp){ GgufTensor x; x.name=std::move(t.name); x.dims=std::move(t.dims); x.type=t.type; const auto qk=quant_row_block(x.type); if(qk>1&&x.ne(0)%qk)throw std::runtime_error("quantized tensor row is not block aligned: "+x.name); if(t.rel>std::numeric_limits<std::uint64_t>::max()-data_offset_) throw std::runtime_error("tensor offset overflow: "+x.name); x.offset=data_offset_+t.rel; x.nbytes=ggml_tensor_nbytes(x.type,x.elements()); if(x.offset>file_.size()||x.nbytes>file_.size()-x.offset) throw std::runtime_error("tensor out of file bounds: "+x.name); if(tensor_index_.contains(x.name)) throw std::runtime_error("duplicate GGUF tensor: "+x.name); tensor_index_[x.name]=tensors_.size(); tensors_.push_back(std::move(x)); }
+    if(nt&&data_offset_>file_.size())throw std::runtime_error("GGUF data section starts beyond file bounds");
+    r.charge(checked_mul(nt,sizeof(GgufTensor)+96,"GGUF tensor index budget overflow"));
+    tensors_.reserve(tmp.size());tensor_index_.reserve(tmp.size());
+    for(auto&t:tmp){GgufTensor x;x.name=std::move(t.name);x.dims=std::move(t.dims);x.type=t.type;const auto qk=quant_row_block(x.type);if(qk>1&&x.ne(0)%qk)throw std::runtime_error("quantized tensor row is not block aligned: "+x.name);if(t.rel>std::numeric_limits<std::uint64_t>::max()-data_offset_)throw std::runtime_error("tensor offset overflow: "+x.name);x.offset=data_offset_+t.rel;x.nbytes=ggml_tensor_nbytes(x.type,x.elements());if(x.offset>file_.size()||x.nbytes>file_.size()-x.offset)throw std::runtime_error("tensor out of file bounds: "+x.name);if(tensor_index_.contains(x.name))throw std::runtime_error("duplicate GGUF tensor: "+x.name);tensor_index_[x.name]=tensors_.size();tensors_.push_back(std::move(x));}
 }
 const GgufTensor& GgufFile::tensor(const std::string& name) const { auto it=tensor_index_.find(name); if(it==tensor_index_.end()) throw std::runtime_error("missing tensor: "+name); return tensors_[it->second]; }
 bool GgufFile::has_tensor(const std::string& name) const { return tensor_index_.contains(name); }
