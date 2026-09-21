@@ -33,7 +33,17 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential cmake ninja-build
+          sudo apt-get install -y build-essential cmake ninja-build clang-format
+
+      - name: Report format drift for refactored files
+        if: matrix.build_type == 'Release'
+        run: |
+          clang-format --dry-run \
+            src/runtime.cpp \
+            src/prefetch_policy.cpp \
+            include/memvanta/prefetch_policy.hpp \
+            tests/prefetch_policy_tests.cpp \
+            tools_gguf_inspect.cpp
 
       - name: Configure
         run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
@@ -69,6 +79,40 @@ jobs:
 
       - name: Test portable runtime-dispatch build
         run: ctest --test-dir build-portable --output-on-failure
+
+  arm64-qemu:
+    name: arm64-Release-NEON-capable-cross
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install ARM64 toolchain and emulator
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake ninja-build qemu-user \
+            gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+
+      - name: Configure ARMv8 SIMD build
+        run: >-
+          cmake -S . -B build-arm64 -G Ninja
+          -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_TOOLCHAIN_FILE=cmake/toolchains/aarch64-linux-gnu.cmake
+          -DCMAKE_CXX_FLAGS="-march=armv8-a+simd"
+          -DMEMVANTA_NATIVE=OFF
+          -DMEMVANTA_ENABLE_IPO=OFF
+          -DCMAKE_DISABLE_FIND_PACKAGE_OpenMP=TRUE
+
+      - name: Build ARM64 targets
+        run: cmake --build build-arm64 -j "$(nproc)"
+
+      - name: Run portable correctness tests under QEMU
+        run: >-
+          ctest --test-dir build-arm64 --output-on-failure
+          -E memvanta_concurrency_stress_tests
 
   sanitizers:
     name: clang-ASan-UBSan

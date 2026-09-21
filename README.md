@@ -18,7 +18,9 @@ ctest --test-dir build --output-on-failure
 
 To reproduce the published memory measurements against pinned `llama.cpp`, follow the **[reproduction guide](docs/EXTERNAL_REPRODUCTION.md)**.
 
-## Benchmark: MemVanta vs llama.cpp
+## Primary benchmark: MemVanta vs llama.cpp
+
+The canonical repeated peak-RSS comparison below is MemVanta's **primary public memory claim**. Throughput is reported beside memory so the trade-off is explicit.
 
 <!-- BEGIN_CANONICAL_7B_BENCHMARK -->
 | Metric | MemVanta | pinned `llama.cpp` |
@@ -31,7 +33,7 @@ To reproduce the published memory measurements against pinned `llama.cpp`, follo
 Source of truth: [`results/openllama-7b-v2-ab/summary.json`](results/openllama-7b-v2-ab/summary.json). The README table is generated from that file; do not edit its numbers by hand.
 <!-- END_CANONICAL_7B_BENCHMARK -->
 
-### Constrained-memory boundary
+### Secondary systems evidence: constrained-memory boundary
 
 A separate Linux cgroup-v2 `MemoryMax` experiment, with swap disabled and the same verified OpenLLaMA 7B v2 Q4_0 model, narrowed the execution-under-pressure boundary to 32 MiB resolution:
 
@@ -42,7 +44,7 @@ A separate Linux cgroup-v2 `MemoryMax` experiment, with swap disabled and the sa
 | Confirmed-success ceiling difference | **3488 MiB lower** | baseline |
 | Confirmed-success ceiling reduction vs pinned `llama.cpp` | **95.61%** | baseline |
 
-Each final success/OOM edge was repeated twice. This is a **cgroup execution-under-pressure boundary on the tested hosted runner**, not an exact physical-RAM minimum and not a replacement for the peak-RSS/throughput benchmark above.
+Each final success/OOM edge was repeated twice. This is a **cgroup execution-under-pressure boundary on the tested hosted runner**, not an exact physical-RAM minimum and not a replacement for the peak-RSS/throughput benchmark above. In particular, **160 MiB must not be quoted as the physical RAM required to hold or run a 7B model**; the primary memory result remains the repeated **3.80 GiB peak-RSS** measurement above.
 
 At each runtime's lowest confirmed successful ceiling, the two confirmation runs averaged approximately:
 
@@ -65,13 +67,17 @@ MemVanta focuses on:
 - mmap-backed model access and paged KV cache
 - Q4/Q8 and AVX2/FMA optimization while preserving memory efficiency
 
-Current real-model execution supports GGUF files with `general.architecture=llama`.
+Current trained-model execution supports GGUF files with `general.architecture=llama`.
+
+The GGUF container/parser is intentionally architecture-neutral. CI also validates parsing a pinned `general.architecture=qwen2` GGUF with `memvanta_gguf_inspect`; this is **container compatibility evidence only**, not a claim that Qwen2 inference is implemented.
 
 ## Adaptive prefetch and performance guardrails
 
 MemVanta uses **byte-bounded adaptive weight prefetching** with usefulness, memory-pressure, and latency feedback. Look-ahead is constrained by an explicit hot-set budget, and real-model validation checks that prefetching preserves deterministic output while staying inside the configured memory bound.
 
-Performance profiling separates **prefill, decode, FFN, QKV projection, attention output projection, and output-head costs**. CPU-kernel changes are evaluated with repeated same-runner OpenLLaMA 7B A/B tests so changes that regress throughput or memory are rejected before merge. Experimental kernel ideas that fail these gates are treated as negative results rather than promoted optimizations.
+The adaptive decision logic is isolated from cache ownership and I/O so policy behavior can be unit-tested independently. Performance profiling separates **prefill, decode, FFN, QKV projection, attention output projection, and output-head costs**.
+
+Release builds can use interprocedural optimization where supported to attack hot Q4/Q8 projection overhead without introducing persistent model copies or an unbounded cache. CPU-kernel/compiler changes are evaluated with repeated same-runner OpenLLaMA 7B A/B tests so changes that regress throughput or memory are rejected before promotion. Experimental ideas that fail these gates are treated as negative results rather than promoted optimizations.
 
 ## Correctness, reliability, and portability
 
@@ -83,15 +89,17 @@ The validation stack includes:
 - concurrency and prefetch lifecycle stress testing
 - AddressSanitizer, UndefinedBehaviorSanitizer, ThreadSanitizer, and GGUF fuzz-smoke coverage
 - portable x86 runtime dispatch plus optimized AVX2/FMA paths where supported
-- trained-model validation on pinned small and 7B-class GGUF models
+- ARM64 cross-build and QEMU correctness coverage compiled for ARMv8 SIMD/NEON-capable code generation
+- trained-model validation on pinned small and 7B-class Llama-family GGUF models
+- non-Llama Qwen2 GGUF container/parser validation with claims explicitly scoped away from execution support
 
-These guardrails are designed to keep memory-efficiency work from weakening numerical correctness, determinism, or portability.
+These guardrails are designed to keep memory-efficiency work from weakening numerical correctness, determinism, portability, or benchmark claim discipline.
 
 ## Contributing
 
 Independent benchmark reproductions, CPU kernel optimizations, GGUF compatibility testing, profiling, and well-documented negative results are welcome.
 
-[Contributing](CONTRIBUTING.md) · [All evidence](results/) · [Citation](CITATION.cff) · [License](LICENSE)
+[Contributing](CONTRIBUTING.md) · [Architecture](docs/ARCHITECTURE.md) · [All evidence](results/) · [Citation](CITATION.cff) · [License](LICENSE)
 
 ---
 

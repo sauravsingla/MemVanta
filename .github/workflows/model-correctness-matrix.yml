@@ -8,6 +8,7 @@ on:
       - 'include/**'
       - 'tests/**'
       - 'tools_tokenize.cpp'
+      - 'tools_gguf_inspect.cpp'
       - 'CMakeLists.txt'
       - '.github/workflows/model-correctness-matrix.yml'
   workflow_dispatch:
@@ -62,7 +63,7 @@ jobs:
           cmake -S . -B build-model-matrix -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
-          # Build the complete configured graph before invoking CTest.  The
+          # Build the complete configured graph before invoking CTest. The
           # correctness matrix deliberately runs the repository unit-test gate,
           # and CTest does not build missing test executables for us.
           cmake --build build-model-matrix -j "$(nproc)"
@@ -188,5 +189,52 @@ jobs:
         with:
           name: model-correctness-${{ matrix.name }}
           path: model-correctness/**
+          if-no-files-found: warn
+          retention-days: 30
+
+  qwen2-container-compatibility:
+    name: qwen2-0.5b-GGUF-container
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      MODEL: Qwen2.5-0.5B-Instruct-Q4_0.gguf
+      MODEL_URL: https://huggingface.co/bartowski/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/Qwen2.5-0.5B-Instruct-Q4_0.gguf?download=true
+      MODEL_SHA256: c8cd5f37dd1235fb010c45316d4ff8af875e1a4e0ff368b4bf6cacb9053d4919
+
+    steps:
+      - name: Checkout MemVanta
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake ninja-build curl
+
+      - name: Build architecture-neutral GGUF inspector
+        run: |
+          cmake -S . -B build-qwen2 -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DMEMVANTA_NATIVE=OFF
+          cmake --build build-qwen2 --target memvanta_gguf_inspect -j "$(nproc)"
+
+      - name: Download and verify Qwen2 GGUF
+        run: |
+          curl -L --fail --retry 3 --retry-delay 2 "$MODEL_URL" -o "$MODEL"
+          echo "$MODEL_SHA256  $MODEL" | sha256sum -c -
+
+      - name: Validate non-Llama GGUF container parsing
+        run: |
+          mkdir -p qwen2-container
+          ./build-qwen2/memvanta_gguf_inspect "$MODEL" --expect-arch qwen2 \
+            | tee qwen2-container/inspect.txt
+          grep -q '^architecture=qwen2$' qwen2-container/inspect.txt
+          grep -Eq '^tensors=[1-9][0-9]*$' qwen2-container/inspect.txt
+
+      - name: Upload parser compatibility evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qwen2-gguf-container-compatibility
+          path: qwen2-container/**
           if-no-files-found: warn
           retention-days: 30
