@@ -105,7 +105,9 @@ public:
     const GgufTokenizer& tokenizer() const { return tok_; }
     void reset();
     const std::vector<float>& forward(int token,bool compute_logits=true);
-    const std::vector<float>& prefill(const std::vector<int>& tokens,std::size_t batch_size=64,bool compute_logits_last=true);
+    // The exact 7B tuning sweep found batch 16 faster than 32/64 while keeping
+    // peak RSS effectively flat, so use it as the evidence-backed default.
+    const std::vector<float>& prefill(const std::vector<int>& tokens,std::size_t batch_size=16,bool compute_logits_last=true);
     std::vector<int> generate(const std::vector<int>& prompt,std::size_t n,Sampler& sampler);
     std::size_t position() const { return pos_; }
     std::size_t kv_bytes_allocated() const;

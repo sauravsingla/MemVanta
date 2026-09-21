@@ -5,6 +5,7 @@ on:
   pull_request:
     paths:
       - '.github/workflows/sevenb-ffn-kernel-ab.yml'
+      - 'CMakeLists.txt'
       - 'src/gguf_kernels.cpp'
       - 'include/memvanta/gguf_kernels.hpp'
       - 'benchmarks/profile_bench.cpp'
@@ -12,6 +13,7 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/sevenb-ffn-kernel-ab.yml'
+      - 'CMakeLists.txt'
       - 'src/gguf_kernels.cpp'
       - 'include/memvanta/gguf_kernels.hpp'
       - 'benchmarks/profile_bench.cpp'
@@ -23,7 +25,7 @@ env:
   MODEL: openlm-research-open_llama_7b_v2-Q4_0.gguf
   MODEL_URL: https://huggingface.co/maddes8cht/openlm-research-open_llama_7b_v2-gguf/resolve/main/openlm-research-open_llama_7b_v2-Q4_0.gguf?download=true
   MODEL_SHA256: 892f6e2e840ed98bb7bc1d74da67ae0cca52b2d90b0316d0a7e66a37a5a60760
-  AB_SCHEMA: 8
+  AB_SCHEMA: 9
   REPS: 3
   THREADS: 4
   CTX: 256
@@ -74,7 +76,7 @@ jobs:
           run_ab=false
           while IFS= read -r path; do
             case "$path" in
-              .github/workflows/sevenb-ffn-kernel-ab.yml|src/gguf_kernels.cpp|include/memvanta/gguf_kernels.hpp|benchmarks/profile_bench.cpp)
+              .github/workflows/sevenb-ffn-kernel-ab.yml|CMakeLists.txt|src/gguf_kernels.cpp|include/memvanta/gguf_kernels.hpp|benchmarks/profile_bench.cpp)
                 run_ab=true
                 break
                 ;;
@@ -83,10 +85,10 @@ jobs:
 
           echo "run_ab=$run_ab" >> "$GITHUB_OUTPUT"
           if [ "$run_ab" = true ]; then
-            echo "Kernel/profile/workflow code changed: running repeated 7B A/B."
+            echo "Kernel/profile/compiler configuration changed: running repeated 7B A/B."
           else
-            echo "No FFN kernel/profile code changed: specialized A/B is not applicable."
-            echo "Broader llama_model.cpp runtime changes are covered by Seven Billion Throughput Profile."
+            echo "No FFN kernel/profile/compiler change: specialized A/B is not applicable."
+            echo "Broader runtime changes are covered by Seven Billion Throughput Profile."
           fi
 
   compare:

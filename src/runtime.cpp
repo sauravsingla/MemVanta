@@ -9,6 +9,8 @@
 namespace memvanta {
 Runtime::Runtime(const TensorStore&s,RunConfig c):store_(s),cfg_(c),cache_(c.cache_bytes),prefetcher_(s,cache_){
   if(cfg_.copy_cache && cfg_.prefetch_budget_bytes>cfg_.cache_bytes) cfg_.prefetch_budget_bytes=cfg_.cache_bytes;
+  cfg_.adaptive_low_useful_ratio=std::clamp(cfg_.adaptive_low_useful_ratio,0.0,1.0);
+  cfg_.adaptive_high_useful_ratio=std::clamp(cfg_.adaptive_high_useful_ratio,cfg_.adaptive_low_useful_ratio,1.0);
   if(cfg_.adaptive_prefetch){
     if(cfg_.adaptive_min_depth==0) cfg_.adaptive_min_depth=1;
     if(cfg_.adaptive_max_depth<cfg_.adaptive_min_depth) cfg_.adaptive_max_depth=cfg_.adaptive_min_depth;
@@ -31,14 +33,31 @@ RunStats Runtime::run_stream(){
   std::uint32_t depth=cfg_.prefetch_depth;
   PrefetchStats pf{};
   const std::uint64_t unlimited=std::numeric_limits<std::uint64_t>::max();
-  const std::uint64_t budget=cfg_.prefetch_budget_bytes?cfg_.prefetch_budget_bytes:(cfg_.copy_cache?cfg_.cache_bytes:unlimited);
+  const std::uint64_t configured_budget=cfg_.prefetch_budget_bytes
+      ? cfg_.prefetch_budget_bytes
+      : (cfg_.copy_cache?cfg_.cache_bytes:unlimited);
+  // Copy-cache adaptive look-ahead must leave room for the slice being consumed
+  // and for cache turnover while asynchronous requests complete. Real 7B
+  // pressure evidence showed that probing into 3/4 or all of a 256 MiB cache
+  // with 64 MiB slices can collapse usefulness. Bound adaptive look-ahead to
+  // half of the copy cache while honoring any tighter caller budget. Fixed mode
+  // keeps the caller's full budget so benchmark sweeps can measure the oracle.
+  const std::uint64_t adaptive_cache_limit=cfg_.copy_cache
+      ? std::max<std::uint64_t>(1,cfg_.cache_bytes/2)
+      : configured_budget;
+  const std::uint64_t inflight_limit=cfg_.adaptive_prefetch
+      ? std::min(configured_budget,adaptive_cache_limit)
+      : configured_budget;
   pf.final_depth=depth; pf.min_depth_seen=depth; pf.max_depth_seen=depth;
-  pf.hot_set_budget_bytes=budget==unlimited?0:budget;
+  pf.hot_set_budget_bytes=inflight_limit==unlimited?0:inflight_limit;
+
   std::unordered_map<std::uint32_t,std::uint64_t> requested;
-  std::uint64_t inflight_bytes=0;
+  std::uint64_t inflight_bytes=0,window_peak_inflight=0;
   double previous_window_ms=std::numeric_limits<double>::infinity(),window_ms=0.0;
-  std::uint32_t window_items=0;
-  std::uint64_t window_consumed=0,window_useful=0,previous_evictions=0;
+  double probe_reference_ms=0.0;
+  std::uint32_t window_items=0,stable_windows=0,cooldown_windows=0,probe_from_depth=depth;
+  bool probing_up=false;
+  std::uint64_t window_consumed=0,window_useful=0,window_budget_skips=0,previous_evictions=0;
   for(std::uint32_t p=0;p<cfg_.passes;++p){
     requested.clear(); inflight_bytes=0;
     for(std::uint32_t i=0;i<store_.count();++i){
@@ -60,12 +79,13 @@ RunStats Runtime::run_stream(){
         if(cfg_.copy_cache&&cache_.contains(id))continue;
         const auto bytes=store_.slice(id).bytes;
         ++pf.eligible;
-        if(budget!=unlimited&&(bytes>budget||inflight_bytes>budget-bytes)){
-          ++pf.skipped_budget;
+        if(inflight_limit!=unlimited&&(bytes>inflight_limit||inflight_bytes>inflight_limit-bytes)){
+          ++pf.skipped_budget;++window_budget_skips;
           continue;
         }
         requested.emplace(id,bytes);
         inflight_bytes+=bytes;
+        window_peak_inflight=std::max(window_peak_inflight,inflight_bytes);
         pf.max_inflight_bytes=std::max(pf.max_inflight_bytes,inflight_bytes);
         ++pf.requests;pf.bytes_requested+=bytes;
         if(cfg_.copy_cache) prefetcher_.request(id); else store_.prefetch(id);
@@ -91,20 +111,54 @@ RunStats Runtime::run_stream(){
         const auto evictions=cache_.stats().evictions;
         const bool have_usefulness=window_consumed>=2;
         const double useful_ratio=window_consumed?double(window_useful)/double(window_consumed):1.0;
-        const bool low_usefulness=have_usefulness&&useful_ratio<0.50;
-        const bool high_usefulness=have_usefulness&&useful_ratio>=0.75;
+        const bool low_usefulness=have_usefulness&&useful_ratio<cfg_.adaptive_low_useful_ratio;
+        const bool high_usefulness=have_usefulness&&useful_ratio>=cfg_.adaptive_high_useful_ratio;
         // Sequential streaming naturally evicts old cache entries. Only treat
         // turnover as pressure when the look-ahead itself is not proving useful.
         const bool eviction_pressure=cfg_.copy_cache&&evictions>previous_evictions&&have_usefulness&&!high_usefulness;
-        const bool latency_regression=previous_window_ms<std::numeric_limits<double>::infinity()&&avg>previous_window_ms*1.05;
-        const bool latency_stable=previous_window_ms<std::numeric_limits<double>::infinity()&&avg<=previous_window_ms*1.01;
-        if(eviction_pressure||low_usefulness||latency_regression){
+        const bool slower=previous_window_ms<std::numeric_limits<double>::infinity()&&avg>previous_window_ms*1.05;
+        const bool stable=previous_window_ms<std::numeric_limits<double>::infinity()&&avg<=previous_window_ms*1.01;
+        const bool hard_pressure=eviction_pressure||window_budget_skips||low_usefulness;
+
+        if(probing_up){
+          // A larger depth is a probe, not a permanent promotion. Keep it only
+          // if the next complete window improves by at least 0.5% without
+          // pressure; otherwise return immediately to the proven depth.
+          const bool probe_improved=avg<=probe_reference_ms*0.995;
+          if(hard_pressure||!probe_improved){
+            if(depth>probe_from_depth){depth=probe_from_depth;++pf.adjustments_down;}
+            previous_window_ms=probe_reference_ms;
+          } else {
+            previous_window_ms=avg;
+          }
+          probing_up=false;
+          stable_windows=0;
+          cooldown_windows=2;
+        } else if(hard_pressure||slower){
           if(depth>cfg_.adaptive_min_depth){--depth;++pf.adjustments_down;}
-        } else if(high_usefulness&&latency_stable&&depth<cfg_.adaptive_max_depth&&(budget==unlimited||inflight_bytes<budget)){
-          ++depth;++pf.adjustments_up;
+          previous_window_ms=avg;
+          stable_windows=0;
+          cooldown_windows=2;
+        } else {
+          previous_window_ms=avg;
+          if(cooldown_windows) --cooldown_windows;
+          if(stable&&high_usefulness) ++stable_windows; else stable_windows=0;
+          // Require two stable windows and 25% headroom inside the cache-safe
+          // limit before probing one additional depth. This prevents the probe
+          // itself from consuming the working-set space it is trying to help.
+          const bool byte_headroom=inflight_limit==unlimited||
+              (inflight_limit>0&&window_peak_inflight<inflight_limit-(inflight_limit/4));
+          if(stable_windows>=2&&!cooldown_windows&&high_usefulness&&byte_headroom&&depth<cfg_.adaptive_max_depth){
+            probe_reference_ms=avg;
+            probe_from_depth=depth;
+            ++depth;++pf.adjustments_up;
+            probing_up=true;
+            stable_windows=0;
+          }
         }
-        previous_window_ms=avg; previous_evictions=evictions; window_ms=0.0; window_items=0; window_consumed=0; window_useful=0;
-        pf.min_depth_seen=std::min(pf.min_depth_seen,depth); pf.max_depth_seen=std::max(pf.max_depth_seen,depth);
+
+        previous_evictions=evictions;window_ms=0.0;window_items=0;window_consumed=0;window_useful=0;window_budget_skips=0;window_peak_inflight=0;
+        pf.min_depth_seen=std::min(pf.min_depth_seen,depth);pf.max_depth_seen=std::max(pf.max_depth_seen,depth);
       }
     }
     for(const auto& [id,bytes]:requested){(void)id;++pf.unused;pf.bytes_unused+=bytes;}
