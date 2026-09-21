@@ -42,9 +42,16 @@ int main() {
         CHECK(probe.depth == 2);
         CHECK(probe.adjustment == PrefetchAdjustment::Up);
 
-        const auto rollback = c.observe(good_window(10.0));
+        const auto rollback = c.observe(good_window(10.10));
         CHECK(rollback.depth == 1);
         CHECK(rollback.adjustment == PrefetchAdjustment::Down);
+
+        // A rejected probe should not immediately oscillate back upward.
+        for (int i = 0; i < 5; ++i) {
+            const auto d = c.observe(good_window(10.0));
+            CHECK(d.depth == 1);
+            CHECK(d.adjustment == PrefetchAdjustment::None);
+        }
     }
 
     {
@@ -53,7 +60,10 @@ int main() {
         c.observe(good_window(10.0));
         const auto probe = c.observe(good_window(10.0));
         CHECK(probe.depth == 2);
-        const auto keep = c.observe(good_window(9.90));
+
+        // A highly useful probe within 0.5% of the reference is retained. The
+        // byte ceiling, not timing noise, remains the memory guardrail.
+        const auto keep = c.observe(good_window(10.04));
         CHECK(keep.depth == 2);
         CHECK(keep.adjustment == PrefetchAdjustment::None);
     }
