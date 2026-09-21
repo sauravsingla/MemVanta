@@ -43,11 +43,13 @@ private:
     std::uint32_t stable_windows_{};
     std::uint32_t cooldown_windows_{};
     std::uint32_t probe_from_depth_{};
+    std::uint32_t rejected_probe_from_depth_{};
     std::uint64_t previous_evictions_{};
     double previous_window_ms_{std::numeric_limits<double>::infinity()};
     double probe_reference_ms_{};
+    double rejected_probe_reference_ms_{std::numeric_limits<double>::infinity()};
     bool probing_up_{};
-    bool rejected_higher_depth_{};
+    bool rejected_probe_blocked_{};
 };
 
 } // namespace memvanta
