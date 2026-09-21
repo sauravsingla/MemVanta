@@ -74,7 +74,7 @@ jobs:
           run_ab=false
           while IFS= read -r path; do
             case "$path" in
-              src/gguf_kernels.cpp|include/memvanta/gguf_kernels.hpp|benchmarks/profile_bench.cpp)
+              .github/workflows/sevenb-ffn-kernel-ab.yml|src/gguf_kernels.cpp|include/memvanta/gguf_kernels.hpp|benchmarks/profile_bench.cpp)
                 run_ab=true
                 break
                 ;;
@@ -83,7 +83,7 @@ jobs:
 
           echo "run_ab=$run_ab" >> "$GITHUB_OUTPUT"
           if [ "$run_ab" = true ]; then
-            echo "Kernel/profile code changed: running repeated 7B A/B."
+            echo "Kernel/profile/workflow code changed: running repeated 7B A/B."
           else
             echo "No FFN kernel/profile code changed: specialized A/B is not applicable."
             echo "Broader llama_model.cpp runtime changes are covered by Seven Billion Throughput Profile."
@@ -170,12 +170,15 @@ jobs:
         env:
           BASELINE_COMMIT: ${{ steps.refs.outputs.baseline }}
           CANDIDATE_COMMIT: ${{ steps.refs.outputs.candidate }}
+          EVENT_NAME: ${{ github.event_name }}
         run: |
           python3 - <<'PY'
           import json, os, pathlib, re, statistics
           out=pathlib.Path('sevenb-ffn-kernel-ab')
           reps=int(os.environ['REPS'])
           tolerance=float(os.environ['PERFORMANCE_TOLERANCE_PCT'])
+          event_name=os.environ['EVENT_NAME']
+          enforce_gate=event_name != 'push'
           keys=['prefill_ms','decode_total_ms','ffn_gemm_ms','qkv_projection_ms','attention_output_projection_ms','output_head_ms','non_gemm_core_ms']
           def parse_profile(path):
               s=path.read_text()
@@ -215,9 +218,11 @@ jobs:
               'rss_growth_le_2pct': rss_growth <= 2.0,
           }
           gate['pass']=all(gate.values())
+          gate['enforced']=enforce_gate
           summary={
               'baseline_commit':os.environ['BASELINE_COMMIT'],
               'candidate_commit':os.environ['CANDIDATE_COMMIT'],
+              'event_name':event_name,
               'reps':reps,
               'performance_tolerance_pct':tolerance,
               'aggregate':aggregate,
@@ -229,16 +234,19 @@ jobs:
           (out/'summary.json').write_text(json.dumps(summary,indent=2)+'\n')
           lines=['# OpenLLaMA 7B FFN kernel repeated same-runner A/B','',
                  f'Current baseline vs candidate on the exact same runner and verified Q4_0 GGUF; {reps} alternating-order pairs.','',
-                 f'Hosted-runner regression tolerance: {tolerance:.1f}% for FFN and end-to-end time; candidates still need positive evidence before promotion.','',
+                 f'Hosted-runner regression tolerance: {tolerance:.1f}% for FFN and end-to-end time; pull requests and manual runs remain blocking, while main pushes retain evidence without re-rejecting already-merged code.','',
                  '| Metric | Baseline mean ± SD | Candidate mean ± SD | Improvement |','|---|---:|---:|---:|']
           for k,label in [('ffn_gemm_ms','FFN GEMM ms'),('prefill_ms','Prefill ms'),('decode_total_ms','Decode ms'),('qkv_projection_ms','QKV ms')]:
               a=aggregate[k]
               lines.append(f"| {label} | {a['baseline']['mean']:.2f} ± {a['baseline']['stdev']:.2f} | {a['optimized']['mean']:.2f} ± {a['optimized']['stdev']:.2f} | {a['improvement_pct']:.2f}% |")
-          lines += ['', f'- Total improvement: {total_improvement:.2f}%', f'- FFN improvement: {ffn_improvement:.2f}%', f'- RSS growth: {rss_growth:.2f}%', f'- Gate: **{"PASS" if gate["pass"] else "FAIL"}**']
+          enforcement='blocking' if enforce_gate else 'evidence-only on main push'
+          lines += ['', f'- Total improvement: {total_improvement:.2f}%', f'- FFN improvement: {ffn_improvement:.2f}%', f'- RSS growth: {rss_growth:.2f}%', f'- Gate: **{"PASS" if gate["pass"] else "FAIL"}**', f'- Gate enforcement: **{enforcement}**']
           (out/'SUMMARY.md').write_text('\n'.join(lines)+'\n')
           print((out/'SUMMARY.md').read_text())
           if not gate['pass']:
-              raise SystemExit('candidate exceeded hosted-runner performance/RSS regression guardrail')
+              if enforce_gate:
+                  raise SystemExit('candidate exceeded hosted-runner performance/RSS regression guardrail')
+              print('::warning::candidate exceeded hosted-runner performance/RSS guardrail on main push; evidence retained, PR/manual gate remains authoritative')
           PY
 
       - name: Record environment
