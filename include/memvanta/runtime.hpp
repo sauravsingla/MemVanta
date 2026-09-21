@@ -17,6 +17,8 @@ struct RunConfig {
   // Zero keeps the historical behavior: use the copy-cache capacity when
   // copy_cache is enabled, or leave mmap-only prefetch unbounded by bytes.
   std::uint64_t prefetch_budget_bytes=0;
+  double adaptive_low_useful_ratio=0.60;
+  double adaptive_high_useful_ratio=0.90;
 };
 struct PrefetchStats {
   std::uint64_t requests=0;
