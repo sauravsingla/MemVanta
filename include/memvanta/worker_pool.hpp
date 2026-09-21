@@ -22,6 +22,10 @@ public:
 private:
     unsigned threads_{1};
     std::vector<std::thread> workers_;
+    // A pool may be reused across many kernels, but only one generation may be
+    // submitted at a time. Serializing callers prevents generation/completion state
+    // from being overwritten by concurrent parallel_for invocations.
+    std::mutex call_mu_;
     std::mutex m_;
     std::condition_variable cv_,done_;
     std::function<void(std::size_t,std::size_t)> fn_;
