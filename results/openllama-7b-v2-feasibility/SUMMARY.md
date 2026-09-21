@@ -2,10 +2,10 @@
 
 This is a single-run feasibility check, not a repeated benchmark claim.
 
-- MemVanta pp: 2.90 tok/s
+- MemVanta pp: 2.92 tok/s
 - llama.cpp pp: 12.86 tok/s
 - MemVanta tg: 1.56 tok/s
-- llama.cpp tg: 8.11 tok/s
-- MemVanta peak RSS: 3981180 KiB
-- llama.cpp peak RSS: 7586036 KiB
-- MemVanta RSS reduction: 47.52%
+- llama.cpp tg: 8.07 tok/s
+- MemVanta peak RSS: 3982032 KiB
+- llama.cpp peak RSS: 7588768 KiB
+- MemVanta RSS reduction: 47.53%
