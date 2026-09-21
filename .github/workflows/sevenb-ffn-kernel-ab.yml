@@ -183,7 +183,8 @@ jobs:
           enforce_gate=event_name != 'push'
           keys=['prefill_ms','decode_total_ms','ffn_gemm_ms','qkv_projection_ms','attention_output_projection_ms','output_head_ms','non_gemm_core_ms']
           def parse_profile(path):
-              s=path.read_text(); vals={}
+              s=path.read_text()
+              vals={}
               for k in keys:
                   m=re.search(rf'\b{k}=([0-9.]+)',s)
                   if not m: raise SystemExit(f'missing {k} in {path}')
@@ -213,18 +214,40 @@ jobs:
           total_o=aggregate['prefill_ms']['optimized']['mean']+aggregate['decode_total_ms']['optimized']['mean']
           total_improvement=pct(total_b,total_o)
           ffn_improvement=aggregate['ffn_gemm_ms']['improvement_pct']
-          gate={'ffn_within_noise_guardrail':ffn_improvement>=-tolerance,'total_within_noise_guardrail':total_improvement>=-tolerance,'rss_growth_le_2pct':rss_growth<=2.0}
-          gate['pass']=all(gate.values()); gate['enforced']=enforce_gate
-          summary={'baseline_commit':os.environ['BASELINE_COMMIT'],'candidate_commit':os.environ['CANDIDATE_COMMIT'],'event_name':event_name,'reps':reps,'performance_tolerance_pct':tolerance,'aggregate':aggregate,'rss_kib':{'baseline_mean':br,'candidate_mean':orr,'growth_pct':rss_growth},'total_improvement_pct':total_improvement,'ffn_improvement_pct':ffn_improvement,'gate':gate}
+          gate={
+              'ffn_within_noise_guardrail': ffn_improvement >= -tolerance,
+              'total_within_noise_guardrail': total_improvement >= -tolerance,
+              'rss_growth_le_2pct': rss_growth <= 2.0,
+          }
+          gate['pass']=all(gate.values())
+          gate['enforced']=enforce_gate
+          summary={
+              'baseline_commit':os.environ['BASELINE_COMMIT'],
+              'candidate_commit':os.environ['CANDIDATE_COMMIT'],
+              'event_name':event_name,
+              'reps':reps,
+              'performance_tolerance_pct':tolerance,
+              'aggregate':aggregate,
+              'rss_kib':{'baseline_mean':br,'candidate_mean':orr,'growth_pct':rss_growth},
+              'total_improvement_pct':total_improvement,
+              'ffn_improvement_pct':ffn_improvement,
+              'gate':gate,
+          }
           (out/'summary.json').write_text(json.dumps(summary,indent=2)+'\n')
-          lines=['# OpenLLaMA 7B FFN kernel repeated same-runner A/B','',f'Current baseline vs candidate on the exact same runner and verified Q4_0 GGUF; {reps} alternating-order pairs.','',f'Hosted-runner regression tolerance: {tolerance:.1f}% for FFN and end-to-end time; pull requests and manual runs remain blocking, while main pushes retain evidence without re-rejecting already-merged code.','', '| Metric | Baseline mean ± SD | Candidate mean ± SD | Improvement |','|---|---:|---:|---:|']
+          lines=['# OpenLLaMA 7B FFN kernel repeated same-runner A/B','',
+                 f'Current baseline vs candidate on the exact same runner and verified Q4_0 GGUF; {reps} alternating-order pairs.','',
+                 f'Hosted-runner regression tolerance: {tolerance:.1f}% for FFN and end-to-end time; pull requests and manual runs remain blocking, while main pushes retain evidence without re-rejecting already-merged code.','',
+                 '| Metric | Baseline mean ± SD | Candidate mean ± SD | Improvement |','|---|---:|---:|---:|']
           for k,label in [('ffn_gemm_ms','FFN GEMM ms'),('prefill_ms','Prefill ms'),('decode_total_ms','Decode ms'),('qkv_projection_ms','QKV ms')]:
-              a=aggregate[k]; lines.append(f"| {label} | {a['baseline']['mean']:.2f} ± {a['baseline']['stdev']:.2f} | {a['optimized']['mean']:.2f} ± {a['optimized']['stdev']:.2f} | {a['improvement_pct']:.2f}% |")
+              a=aggregate[k]
+              lines.append(f"| {label} | {a['baseline']['mean']:.2f} ± {a['baseline']['stdev']:.2f} | {a['optimized']['mean']:.2f} ± {a['optimized']['stdev']:.2f} | {a['improvement_pct']:.2f}% |")
           enforcement='blocking' if enforce_gate else 'evidence-only on main push'
-          lines += ['',f'- Total improvement: {total_improvement:.2f}%',f'- FFN improvement: {ffn_improvement:.2f}%',f'- RSS growth: {rss_growth:.2f}%',f'- Gate: **{"PASS" if gate["pass"] else "FAIL"}**',f'- Gate enforcement: **{enforcement}**']
-          (out/'SUMMARY.md').write_text('\n'.join(lines)+'\n'); print((out/'SUMMARY.md').read_text())
+          lines += ['', f'- Total improvement: {total_improvement:.2f}%', f'- FFN improvement: {ffn_improvement:.2f}%', f'- RSS growth: {rss_growth:.2f}%', f'- Gate: **{"PASS" if gate["pass"] else "FAIL"}**', f'- Gate enforcement: **{enforcement}**']
+          (out/'SUMMARY.md').write_text('\n'.join(lines)+'\n')
+          print((out/'SUMMARY.md').read_text())
           if not gate['pass']:
-              if enforce_gate: raise SystemExit('candidate exceeded hosted-runner performance/RSS regression guardrail')
+              if enforce_gate:
+                  raise SystemExit('candidate exceeded hosted-runner performance/RSS regression guardrail')
               print('::warning::candidate exceeded hosted-runner performance/RSS guardrail on main push; evidence retained, PR/manual gate remains authoritative')
           PY
 
