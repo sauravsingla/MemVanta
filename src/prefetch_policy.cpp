@@ -30,6 +30,7 @@ AdaptivePrefetchDecision AdaptivePrefetchController::observe(const AdaptivePrefe
         have_usefulness && useful_ratio < config_.low_useful_ratio;
     const bool high_usefulness =
         have_usefulness && useful_ratio >= config_.high_useful_ratio;
+    const bool needs_more_lookahead = window.late > 0;
 
     // Sequential streaming naturally evicts old cache entries. Only treat
     // turnover as pressure when the look-ahead itself is not proving useful.
@@ -78,7 +79,7 @@ AdaptivePrefetchDecision AdaptivePrefetchController::observe(const AdaptivePrefe
     } else {
         previous_window_ms_ = window.average_item_ms;
         if (cooldown_windows_) --cooldown_windows_;
-        if (stable && high_usefulness) {
+        if (stable && high_usefulness && needs_more_lookahead) {
             ++stable_windows_;
         } else {
             stable_windows_ = 0;
@@ -94,10 +95,13 @@ AdaptivePrefetchDecision AdaptivePrefetchController::observe(const AdaptivePrefe
             stable_windows_ = 0;
         }
 
-        // Require two stable windows and 25% headroom inside the cache-safe
-        // limit before probing one additional depth. A transition that already
-        // failed in the current steady phase remains blocked until the phase-
-        // change condition above is observed.
+        // Probe deeper only when the current look-ahead is demonstrably too
+        // shallow: at least one requested item arrived late in the observation
+        // window. When every request is useful and on time, a deeper speculative
+        // probe can only add memory/latency risk without an observed demand signal.
+        // Still require two stable windows and 25% headroom inside the cache-safe
+        // limit. A transition already rejected in the current steady phase remains
+        // blocked until the phase-change condition above is observed.
         const auto unlimited = std::numeric_limits<std::uint64_t>::max();
         const bool byte_headroom =
             window.inflight_limit == unlimited ||
@@ -106,8 +110,9 @@ AdaptivePrefetchDecision AdaptivePrefetchController::observe(const AdaptivePrefe
                  window.inflight_limit - (window.inflight_limit / 4));
         const bool rejected_transition =
             rejected_probe_blocked_ && depth_ == rejected_probe_from_depth_;
-        if (stable_windows_ >= 2 && !cooldown_windows_ && high_usefulness && byte_headroom &&
-            !rejected_transition && depth_ < config_.max_depth) {
+        if (stable_windows_ >= 2 && !cooldown_windows_ && high_usefulness &&
+            needs_more_lookahead && byte_headroom && !rejected_transition &&
+            depth_ < config_.max_depth) {
             probe_reference_ms_ = window.average_item_ms;
             probe_from_depth_ = depth_;
             ++depth_;
