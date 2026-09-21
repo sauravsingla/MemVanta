@@ -1,0 +1,191 @@
+name: Model Correctness Matrix
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'include/**'
+      - 'tests/**'
+      - 'tools_tokenize.cpp'
+      - 'CMakeLists.txt'
+      - '.github/workflows/model-correctness-matrix.yml'
+  workflow_dispatch:
+  schedule:
+    - cron: '17 3 * * 0'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: model-correctness-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  LLAMA_CPP_REF: 6503355df0eb4f65875012523263c302fe0088c1
+  OMP_DYNAMIC: 'FALSE'
+  OMP_PROC_BIND: close
+  OMP_PLACES: cores
+
+jobs:
+  differential:
+    runs-on: ubuntu-latest
+    timeout-minutes: 70
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: smollm2-360m-q4_0
+            model: SmolLM2-360M.Q4_0.gguf
+            url: https://huggingface.co/QuantFactory/SmolLM2-360M-GGUF/resolve/main/SmolLM2-360M.Q4_0.gguf?download=true
+            sha256: 88bbd5cac17036bf50905a0a660078b63426cea1c7fc6e4afa955bc8422b043c
+            prompt: The capital of France is
+          - name: tinyllama-1.1b-q4_0
+            model: TinyLlama-1.1B-Chat-v1.0.Q4_0.gguf
+            url: https://huggingface.co/QuantFactory/TinyLlama-1.1B-Chat-v1.0-GGUF/resolve/main/TinyLlama-1.1B-Chat-v1.0.Q4_0.gguf?download=true
+            sha256: 58d7f78ad80e6745d2148dc7391740c2de761da5791c853dec9a09b1f43a1ea9
+            prompt: Once upon a time
+
+    name: ${{ matrix.name }}
+
+    steps:
+      - name: Checkout MemVanta
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake ninja-build curl git ccache python3
+
+      - name: Build and unit test MemVanta
+        run: |
+          cmake -S . -B build-model-matrix -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+          cmake --build build-model-matrix \
+            --target memvanta_real memvanta_eval memvanta_tokenize \
+            -j "$(nproc)"
+          ctest --test-dir build-model-matrix --output-on-failure
+
+      - name: Download and verify model
+        env:
+          MODEL: ${{ matrix.model }}
+          MODEL_URL: ${{ matrix.url }}
+          MODEL_SHA256: ${{ matrix.sha256 }}
+        run: |
+          curl -L --fail --retry 3 --retry-delay 2 "$MODEL_URL" -o "$MODEL"
+          echo "$MODEL_SHA256  $MODEL" | sha256sum -c -
+          mkdir -p model-correctness
+          sha256sum "$MODEL" > model-correctness/model.sha256
+
+      - name: MemVanta thread determinism
+        env:
+          MODEL: ${{ matrix.model }}
+          PROMPT: ${{ matrix.prompt }}
+        run: |
+          set -euo pipefail
+          for t in 1 4; do
+            timeout --signal=TERM --kill-after=15s 300 \
+              ./build-model-matrix/memvanta_real \
+                --model "$MODEL" --threads "$t" --ctx 128 \
+                --temperature 0 --n 4 --prompt "$PROMPT" \
+                > "model-correctness/memvanta-t${t}.txt"
+          done
+          diff -u model-correctness/memvanta-t1.txt model-correctness/memvanta-t4.txt
+
+      - name: MemVanta NLL thread guardrail
+        env:
+          MODEL: ${{ matrix.model }}
+        run: |
+          set -euo pipefail
+          ./build-model-matrix/memvanta_eval --model "$MODEL" --threads 1 --ctx 128 --max-tokens 48 > model-correctness/eval-t1.txt
+          ./build-model-matrix/memvanta_eval --model "$MODEL" --threads 4 --ctx 128 --max-tokens 48 > model-correctness/eval-t4.txt
+          python3 - <<'PY'
+          import json, math, pathlib, re
+          root=pathlib.Path('model-correctness')
+          def parse(p):
+              text=p.read_text()
+              m=re.search(r'avg_nll=([0-9.eE+-]+)',text)
+              g=re.search(r'^greedy_ids=(.*)$',text,re.M)
+              if not m or not g: raise SystemExit(f'unparseable evaluation output: {p}')
+              nll=float(m.group(1)); ids=[int(x) for x in g.group(1).split(',') if x]
+              if not math.isfinite(nll) or not ids: raise SystemExit(f'invalid evaluation output: {p}')
+              return nll,ids
+          a,ai=parse(root/'eval-t1.txt'); b,bi=parse(root/'eval-t4.txt')
+          if ai!=bi: raise SystemExit('greedy token IDs differ between 1 and 4 threads')
+          drift=abs(a-b)/max(1.0,abs(a),abs(b))
+          if drift>1e-3: raise SystemExit(f'avg_nll thread drift too large: {drift}')
+          (root/'thread-determinism.json').write_text(json.dumps({'avg_nll_1':a,'avg_nll_4':b,'relative_drift':drift,'greedy_ids_match':True},indent=2)+'\n')
+          PY
+
+      - name: Build pinned llama.cpp tokenizer and CLI
+        run: |
+          git init llama.cpp
+          git -C llama.cpp remote add origin https://github.com/ggml-org/llama.cpp.git
+          git -C llama.cpp fetch --depth 1 origin "$LLAMA_CPP_REF"
+          git -C llama.cpp checkout --detach FETCH_HEAD
+          cmake -S llama.cpp -B llama.cpp/build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DGGML_CUDA=OFF -DGGML_METAL=OFF -DLLAMA_CURL=OFF \
+            -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF -DLLAMA_BUILD_UI=OFF \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+          cmake --build llama.cpp/build --target llama-cli llama-tokenize -j "$(nproc)"
+          git -C llama.cpp rev-parse HEAD > model-correctness/llama_cpp_commit.txt
+
+      - name: Strict tokenizer-ID parity with llama.cpp
+        env:
+          MODEL: ${{ matrix.model }}
+          PROMPT: ${{ matrix.prompt }}
+        run: |
+          set -euo pipefail
+          ./build-model-matrix/memvanta_tokenize "$MODEL" "$PROMPT" > model-correctness/memvanta-tokenize.txt
+          ./llama.cpp/build/bin/llama-tokenize -m "$MODEL" -p "$PROMPT" --ids --no-bos \
+            > model-correctness/llama-tokenize.txt 2> model-correctness/llama-tokenize.stderr.txt
+          python3 - <<'PY'
+          import json, pathlib, re
+          root=pathlib.Path('model-correctness')
+          mt=(root/'memvanta-tokenize.txt').read_text(errors='replace')
+          lt=(root/'llama-tokenize.txt').read_text(errors='replace')
+          m=re.search(r'^ids=(.*)$',mt,re.M)
+          l=re.search(r'\[\s*([-0-9,\s]*)\s*\]',lt)
+          if not m or not l: raise SystemExit('could not parse tokenizer outputs')
+          mi=[int(x) for x in m.group(1).split(',') if x.strip()]
+          li=[int(x.strip()) for x in l.group(1).split(',') if x.strip()]
+          status={'memvanta_ids':mi,'llama_cpp_ids':li,'equal':mi==li}
+          (root/'tokenizer-parity.json').write_text(json.dumps(status,indent=2)+'\n')
+          if mi!=li: raise SystemExit(f'tokenizer ID mismatch: MemVanta={mi} llama.cpp={li}')
+          PY
+
+      - name: Record external greedy reference
+        env:
+          MODEL: ${{ matrix.model }}
+          PROMPT: ${{ matrix.prompt }}
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=15s 300 \
+            ./llama.cpp/build/bin/llama-cli \
+              -m "$MODEL" -ngl 0 -t 4 -c 128 \
+              -p "$PROMPT" -n 4 --temp 0 --seed 42 \
+              --no-conversation --single-turn --no-display-prompt --no-show-timings \
+              < /dev/null \
+              > model-correctness/llama-reference.txt \
+              2> model-correctness/llama-reference.stderr.txt
+          python3 - <<'PY'
+          import json, pathlib
+          root=pathlib.Path('model-correctness')
+          mem=(root/'memvanta-t4.txt').read_text(errors='replace')
+          ref=(root/'llama-reference.txt').read_text(errors='replace')
+          (root/'external-reference-status.json').write_text(json.dumps({
+              'decoded_output_equal': mem.strip()==ref.strip(),
+              'note':'decoded text is evidence-only; tokenizer parity and MemVanta thread determinism are the enforced gates'
+          },indent=2)+'\n')
+          PY
+
+      - name: Upload differential evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: model-correctness-${{ matrix.name }}
+          path: model-correctness/**
+          if-no-files-found: warn
+          retention-days: 30
