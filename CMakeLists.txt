@@ -21,7 +21,7 @@ add_library(memvanta_core
     src/worker_pool.cpp
     src/llama_model.cpp)
 target_include_directories(memvanta_core PUBLIC include)
-target_compile_options(memvanta_core PRIVATE -O3 -Wall -Wextra -Wpedantic)
+target_compile_options(memvanta_core PRIVATE -Wall -Wextra -Wpedantic $<$<CONFIG:Release>:-O3>)
 if(MEMVANTA_NATIVE)
   target_compile_options(memvanta_core PRIVATE -march=native)
 endif()
@@ -40,14 +40,32 @@ add_executable(memvanta_kernel_bench benchmarks/kernel_bench.cpp)
 target_link_libraries(memvanta_kernel_bench PRIVATE memvanta_core)
 add_executable(memvanta_llama_bench benchmarks/llama_style_bench.cpp)
 target_link_libraries(memvanta_llama_bench PRIVATE memvanta_core)
+
+enable_testing()
 add_executable(memvanta_tests tests/tests.cpp)
 target_link_libraries(memvanta_tests PRIVATE memvanta_core)
-enable_testing()
 add_test(NAME memvanta_tests COMMAND memvanta_tests)
-# Unit tests normally finish in well under a second. Keep a bounded per-test timeout so
-# an intermittent deadlock fails with a useful CTest result instead of consuming the
-# entire GitHub Actions job timeout.
-set_tests_properties(memvanta_tests PROPERTIES TIMEOUT 120)
+
+add_executable(memvanta_fp16_tests tests/fp16_tests.cpp)
+target_link_libraries(memvanta_fp16_tests PRIVATE memvanta_core)
+add_test(NAME memvanta_fp16_tests COMMAND memvanta_fp16_tests)
+
+add_executable(memvanta_gguf_limits_tests tests/gguf_limits_tests.cpp)
+target_link_libraries(memvanta_gguf_limits_tests PRIVATE memvanta_core)
+add_test(NAME memvanta_gguf_limits_tests COMMAND memvanta_gguf_limits_tests)
+
+add_executable(memvanta_concurrency_stress_tests tests/concurrency_stress_tests.cpp)
+target_link_libraries(memvanta_concurrency_stress_tests PRIVATE memvanta_core)
+add_test(NAME memvanta_concurrency_stress_tests COMMAND memvanta_concurrency_stress_tests)
+
+# Keep every unit/stress target bounded so any synchronization regression reports the
+# exact stuck executable instead of consuming the whole CI job timeout.
+set_tests_properties(
+  memvanta_tests
+  memvanta_fp16_tests
+  memvanta_gguf_limits_tests
+  memvanta_concurrency_stress_tests
+  PROPERTIES TIMEOUT 120)
 
 add_executable(memvanta_real src/real_main.cpp)
 target_link_libraries(memvanta_real PRIVATE memvanta_core)
@@ -75,6 +93,7 @@ target_link_libraries(memvanta_tokenizer_tests PRIVATE memvanta_core)
 add_test(NAME memvanta_tokenizer_tests COMMAND memvanta_tokenizer_tests
   ${CMAKE_CURRENT_SOURCE_DIR}/tokenizer_fixtures/gpt2_smollm_tokenizer.gguf
   ${CMAKE_CURRENT_SOURCE_DIR}/tokenizer_fixtures/llama_sentencepiece_tokenizer.gguf)
+set_tests_properties(memvanta_tokenizer_tests PROPERTIES TIMEOUT 120)
 
 if(MEMVANTA_BUILD_FUZZER)
   if(NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
