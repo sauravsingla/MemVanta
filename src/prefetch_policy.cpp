@@ -44,22 +44,29 @@ AdaptivePrefetchDecision AdaptivePrefetchController::observe(const AdaptivePrefe
     PrefetchAdjustment adjustment = PrefetchAdjustment::None;
 
     if (probing_up_) {
-        // A larger depth is a probe, not a permanent promotion. Keep it only
-        // if the next complete window improves by at least 0.5% without
-        // pressure; otherwise return immediately to the proven depth.
-        const bool probe_improved = window.average_item_ms <= probe_reference_ms_ * 0.995;
-        if (hard_pressure || !probe_improved) {
+        // A larger depth is a bounded experiment. Timing windows on hosted CPUs
+        // are noisy, so keep the probe when it is effectively non-regressive
+        // (within 0.5%) and usefulness/memory signals remain healthy. Requiring
+        // a 0.5% measured win caused repeated 1->2->1 oscillation on the 7B
+        // pressure workload even though fixed depth 2 was the throughput oracle.
+        // The explicit byte budget still caps the memory cost of retaining it.
+        const bool probe_non_regressive = window.average_item_ms <= probe_reference_ms_ * 1.005;
+        if (hard_pressure || !probe_non_regressive) {
             if (depth_ > probe_from_depth_) {
                 depth_ = probe_from_depth_;
                 adjustment = PrefetchAdjustment::Down;
             }
             previous_window_ms_ = probe_reference_ms_;
+            // A rejected probe is expensive enough that immediately retrying it
+            // can dominate a short stream. Back off for several complete windows
+            // before reconsidering the same higher depth.
+            cooldown_windows_ = 8;
         } else {
             previous_window_ms_ = window.average_item_ms;
+            cooldown_windows_ = 2;
         }
         probing_up_ = false;
         stable_windows_ = 0;
-        cooldown_windows_ = 2;
     } else if (hard_pressure || slower) {
         if (depth_ > config_.min_depth) {
             --depth_;
