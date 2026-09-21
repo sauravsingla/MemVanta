@@ -1,6 +1,6 @@
 model=TinyLlama-1.1B-Chat-v1.0.Q4_0.gguf
 model_sha256=58d7f78ad80e6745d2148dc7391740c2de761da5791c853dec9a09b1f43a1ea9
-memvanta_commit=e4286f8c593b12fc8114919e5fd282082e0fc263
+memvanta_commit=7f18b320dcfa30cee73f6ac8f21841f0fd0565ff
 llama_cpp_ref=6503355df0eb4f65875012523263c302fe0088c1
 threads=4 prompt=512 gen=128 ctx=768 batch=32 kv=f16 reps=5 warmup=1
 Linux runnervmlun5p 6.17.0-1022-azure #22-Ubuntu SMP Mon Jul 27 17:24:03 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux
@@ -49,5 +49,5 @@ Vulnerability Tsa:                       Vulnerable: No microcode
 Vulnerability Tsx async abort:           Not affected
 Vulnerability Vmscape:                   Not affected
                total        used        free      shared  buff/cache   available
-Mem:            15Gi       1.0Gi        10Gi        51Mi       4.0Gi        14Gi
+Mem:            15Gi       1.0Gi        10Gi        52Mi       4.0Gi        14Gi
 Swap:          3.0Gi          0B       3.0Gi
