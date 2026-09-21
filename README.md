@@ -26,8 +26,8 @@ The canonical repeated peak-RSS comparison below is MemVanta's **primary public 
 | Metric | MemVanta | pinned `llama.cpp` |
 |---|---:|---:|
 | OpenLLaMA 7B v2 Q4_0 peak RSS | **3.80 GiB** | 7.24 GiB |
-| Prompt processing | 2.94 ± 0.00 tok/s | **12.82 ± 0.01 tok/s** |
-| Token generation | 1.62 ± 0.00 tok/s | **8.10 ± 0.02 tok/s** |
+| Prompt processing | 3.73 ± 0.00 tok/s | **21.60 ± 0.02 tok/s** |
+| Token generation | 1.96 ± 0.00 tok/s | **9.66 ± 0.03 tok/s** |
 | Peak-RSS reduction | **47.54%** | baseline |
 
 Source of truth: [`results/openllama-7b-v2-ab/summary.json`](results/openllama-7b-v2-ab/summary.json). The README table is generated from that file; do not edit its numbers by hand.
