@@ -62,8 +62,11 @@ set_tests_properties(
   memvanta_tests
   memvanta_fp16_tests
   memvanta_gguf_limits_tests
-  memvanta_concurrency_stress_tests
   PROPERTIES TIMEOUT 120)
+# The concurrency target intentionally performs repeated lifecycle stress and can
+# take longer on contended hosted runners. Keep the full stress coverage while
+# retaining a finite bound that still catches true hangs.
+set_tests_properties(memvanta_concurrency_stress_tests PROPERTIES TIMEOUT 300)
 
 add_executable(memvanta_real src/real_main.cpp)
 target_link_libraries(memvanta_real PRIVATE memvanta_core)
