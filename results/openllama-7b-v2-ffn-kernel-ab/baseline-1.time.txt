@@ -1,18 +1,18 @@
 	Command being timed: "./baseline/build/memvanta_profile --model openlm-research-open_llama_7b_v2-Q4_0.gguf --threads 4 --ctx 256 --prompt 128 --gen 16 --batch 32 --csv sevenb-ffn-kernel-ab/baseline-1.csv"
-	User time (seconds): 124.43
-	System time (seconds): 0.44
-	Percent of CPU this job got: 234%
-	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:53.22
+	User time (seconds): 98.16
+	System time (seconds): 0.37
+	Percent of CPU this job got: 235%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:41.85
 	Average shared text size (kbytes): 0
 	Average unshared data size (kbytes): 0
 	Average stack size (kbytes): 0
 	Average total size (kbytes): 0
-	Maximum resident set size (kbytes): 3819368
+	Maximum resident set size (kbytes): 3818968
 	Average resident set size (kbytes): 0
 	Major (requiring I/O) page faults: 0
-	Minor (reclaiming a frame) page faults: 94537
-	Voluntary context switches: 6553
-	Involuntary context switches: 29699
+	Minor (reclaiming a frame) page faults: 94539
+	Voluntary context switches: 6667
+	Involuntary context switches: 23282
 	Swaps: 0
 	File system inputs: 0
 	File system outputs: 72
