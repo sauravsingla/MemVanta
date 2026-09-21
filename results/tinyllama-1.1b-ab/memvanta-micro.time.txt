@@ -1,18 +1,18 @@
 	Command being timed: "./build-oneb/memvanta_real_bench --model TinyLlama-1.1B-Chat-v1.0.Q4_0.gguf --threads 4 --ctx 128 --prompt 32 --gen 16 --batch 16 --kv f16 --warmup 0 --reps 1 --no-client --csv oneb-model-ab/memvanta-micro.csv"
-	User time (seconds): 22.68
-	System time (seconds): 0.07
-	Percent of CPU this job got: 253%
-	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:08.97
+	User time (seconds): 23.77
+	System time (seconds): 0.09
+	Percent of CPU this job got: 243%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:09.79
 	Average shared text size (kbytes): 0
 	Average unshared data size (kbytes): 0
 	Average stack size (kbytes): 0
 	Average total size (kbytes): 0
-	Maximum resident set size (kbytes): 609912
+	Maximum resident set size (kbytes): 609820
 	Average resident set size (kbytes): 0
 	Major (requiring I/O) page faults: 0
-	Minor (reclaiming a frame) page faults: 12516
-	Voluntary context switches: 10263
-	Involuntary context switches: 4482
+	Minor (reclaiming a frame) page faults: 12510
+	Voluntary context switches: 10264
+	Involuntary context switches: 3999
 	Swaps: 0
 	File system inputs: 0
 	File system outputs: 16
