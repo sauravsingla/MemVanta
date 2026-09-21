@@ -93,6 +93,16 @@ add_test(NAME memvanta_tokenizer_tests COMMAND memvanta_tokenizer_tests
   ${CMAKE_CURRENT_SOURCE_DIR}/tokenizer_fixtures/llama_sentencepiece_tokenizer.gguf)
 set_tests_properties(memvanta_tokenizer_tests PROPERTIES TIMEOUT 120)
 
+# Several benchmark workflows intentionally build a narrow target set before
+# running the repository-wide CTest gate.  Keep the historical memvanta_tests
+# target as the test-suite build anchor so those targeted builds cannot leave
+# newly registered test executables missing.
+add_dependencies(memvanta_tests
+  memvanta_fp16_tests
+  memvanta_gguf_limits_tests
+  memvanta_concurrency_stress_tests
+  memvanta_tokenizer_tests)
+
 if(MEMVANTA_BUILD_FUZZER)
   if(NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     message(FATAL_ERROR "MEMVANTA_BUILD_FUZZER requires Clang/libFuzzer")
