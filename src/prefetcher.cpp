@@ -15,7 +15,12 @@ void Prefetcher::loop(){
     std::uint32_t id;
     {std::unique_lock lk(mu_);cv_.wait(lk,[&]{return stop_.load()||!q_.empty();});if(stop_.load())return;id=q_.front();q_.pop_front();}
     try{
-      store_.prefetch(id);auto&s=store_.slice(id);cache_.insert_prefetched(id,store_.ptr(id),s.bytes);store_.release(id);
+      store_.prefetch(id);
+      auto&s=store_.slice(id);
+      cache_.insert_prefetched(id,store_.ptr(id),s.bytes);
+      // Do not issue MADV_DONTNEED from the background worker. The consumer
+      // releases the mapped source after it has copied/consumed the tensor.
+      // This avoids concurrent WILLNEED/DONTNEED churn on the same mapping.
       std::lock_guard lk(mu_);pending_.erase(id);
     }catch(...){
       {std::lock_guard lk(mu_);if(!error_)error_=std::current_exception();pending_.erase(id);q_.clear();pending_.clear();}
