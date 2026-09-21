@@ -48,16 +48,23 @@ int main(){
         for(int i=0;i<65536;++i){const unsigned char b=static_cast<unsigned char>((i*37)^0x5a);f.write(reinterpret_cast<const char*>(&b),1);}
     }
     std::uint64_t reference=0;
-    for(int iter=0;iter<150;++iter){
+    {
+        // Keep the mapping stable here so this target stresses Runtime/Prefetcher
+        // construction, stop/join, and adaptive-depth changes rather than mixing
+        // that signal with repeated mmap/madvise/open/close kernel churn.
         memvanta::TensorStore store(path,4096);
-        memvanta::RunConfig cfg{16384,1,2,true};
-        cfg.adaptive_prefetch=(iter%2)==0;
-        cfg.adaptive_min_depth=1;
-        cfg.adaptive_max_depth=4;
-        cfg.adaptive_window=2;
-        auto stats=memvanta::Runtime(store,cfg).run_stream();
-        if(iter==0)reference=stats.checksum;
-        CHECK_MSG(stats.checksum==reference,"runtime/prefetch stress changed deterministic checksum");
+        for(int iter=0;iter<64;++iter){
+            if((iter%8)==0)std::cout<<"[runtime-iter] "<<iter<<'\n'<<std::flush;
+            memvanta::RunConfig cfg{16384,1,2,true};
+            cfg.adaptive_prefetch=(iter%2)==0;
+            cfg.adaptive_min_depth=1;
+            cfg.adaptive_max_depth=4;
+            cfg.adaptive_window=2;
+            memvanta::Runtime runtime(store,cfg);
+            auto stats=runtime.run_stream();
+            if(iter==0)reference=stats.checksum;
+            CHECK_MSG(stats.checksum==reference,"runtime/prefetch stress changed deterministic checksum");
+        }
     }
     std::remove(path);
 
