@@ -80,9 +80,6 @@ void parallel_rows(std::size_t rows, unsigned threads, WorkerPool* pool, Fn fn) 
     if(rows<threads) threads=static_cast<unsigned>(rows);
     if(pool && pool->size()==threads){pool->parallel_for(rows,fn);return;}
 #if defined(MEMVANTA_USE_OPENMP)
-    // Use the same OpenMP-outlined callback for one and many threads so the
-    // compiler cannot give the serial and parallel paths different FP codegen.
-    // The multi-thread hot path is otherwise unchanged.
     const std::size_t step=(rows+threads-1)/threads;
     #pragma omp parallel num_threads(threads)
     {
@@ -150,15 +147,9 @@ inline float dot_q4_0_fp32(const GgufBlockQ4_0* blocks,const float*x,std::size_t
         const __m128i qhi=_mm_sub_epi8(_mm_and_si128(_mm_srli_epi16(packed,4),mask),bias);
         __m256 acc=_mm256_setzero_ps();
 #if defined(__OPTIMIZE__)
-        // Preserve the original hot Release loop shape. At -O3 GCC/Clang
-        // unroll k={0,8} and satisfy the immediate-shift intrinsic exactly as
-        // the benchmarked main-branch kernel did.
         for(int k=0;k<16;k+=8){auto qi=_mm256_cvtepi8_epi32(_mm_srli_si128(qlo,k));acc=_mm256_fmadd_ps(_mm256_cvtepi32_ps(qi),_mm256_loadu_ps(x+b*32+k),acc);}
         for(int k=0;k<16;k+=8){auto qi=_mm256_cvtepi8_epi32(_mm_srli_si128(qhi,k));acc=_mm256_fmadd_ps(_mm256_cvtepi32_ps(qi),_mm256_loadu_ps(x+b*32+16+k),acc);}
 #else
-        // At -O0 the shift count must be syntactically immediate; keep the
-        // same arithmetic ordering without holding four converted vectors
-        // live simultaneously.
         {auto qi=_mm256_cvtepi8_epi32(qlo);acc=_mm256_fmadd_ps(_mm256_cvtepi32_ps(qi),_mm256_loadu_ps(x+b*32),acc);}
         {auto qi=_mm256_cvtepi8_epi32(_mm_srli_si128(qlo,8));acc=_mm256_fmadd_ps(_mm256_cvtepi32_ps(qi),_mm256_loadu_ps(x+b*32+8),acc);}
         {auto qi=_mm256_cvtepi8_epi32(qhi);acc=_mm256_fmadd_ps(_mm256_cvtepi32_ps(qi),_mm256_loadu_ps(x+b*32+16),acc);}
@@ -183,26 +174,17 @@ inline float dot_q8_0_fp32(const GgufBlockQ8_0* blocks,const float*x,std::size_t
 }
 
 inline int q6_k_value(const GgufBlockQ6_K& b,std::size_t i){
-    const std::size_t row32=i/32;
-    const std::size_t j=i%32;
-    const std::size_t group=row32/4;
-    const std::size_t local=row32%4;
-    const std::size_t ql_index=group*64+(local%2)*32+j;
-    const unsigned ql_shift=local<2?0u:4u;
-    const std::size_t qh_index=group*32+j;
-    const unsigned qh_shift=static_cast<unsigned>(local*2);
-    const int lo=(b.ql[ql_index]>>ql_shift)&0x0f;
-    const int hi=(b.qh[qh_index]>>qh_shift)&0x03;
+    const std::size_t row32=i/32,j=i%32,group=row32/4,local=row32%4;
+    const std::size_t ql_index=group*64+(local%2)*32+j,qh_index=group*32+j;
+    const unsigned ql_shift=local<2?0u:4u,qh_shift=static_cast<unsigned>(local*2);
+    const int lo=(b.ql[ql_index]>>ql_shift)&0x0f,hi=(b.qh[qh_index]>>qh_shift)&0x03;
     return (lo|(hi<<4))-32;
 }
 
 inline float dot_q6_k_fp32(const GgufBlockQ6_K* blocks,const float*x,std::size_t n){
     if(n%256)throw std::runtime_error("Q6_K row requires 256-element alignment");
     const std::size_t nb=n/256;double sum=0.0;
-    for(std::size_t bi=0;bi<nb;++bi){
-        const auto& b=blocks[bi];const float d=fp16_to_fp32(b.d);const float* xv=x+bi*256;
-        for(std::size_t i=0;i<256;++i){const float w=d*float(b.scales[i/16])*float(q6_k_value(b,i));sum+=double(w)*xv[i];}
-    }
+    for(std::size_t bi=0;bi<nb;++bi){const auto& b=blocks[bi];const float d=fp16_to_fp32(b.d);const float* xv=x+bi*256;for(std::size_t i=0;i<256;++i){const float w=d*float(b.scales[i/16])*float(q6_k_value(b,i));sum+=double(w)*xv[i];}}
     return static_cast<float>(sum);
 }
 
@@ -260,14 +242,8 @@ inline void q4_row_batch4_fp32(const GgufBlockQ4_0*w,const float*x,std::size_t s
 #if defined(__AVX2__)
     __m256 a0=_mm256_setzero_ps(),a1=_mm256_setzero_ps(),a2=_mm256_setzero_ps(),a3=_mm256_setzero_ps();const __m128i mask=_mm_set1_epi8(0x0f),bias=_mm_set1_epi8(8);
 #if defined(__OPTIMIZE__)
-    // Keep the exact loop structure of the proven main-branch Release kernel.
-    // Optimized GCC/Clang fold k={0,8} to legal immediate shifts and retain
-    // the lower register pressure that the 7B A/B evidence depends on.
     for(std::size_t bi=0;bi<nb;++bi){const __m256 ds=_mm256_set1_ps(kernel_fp16_to_fp32(w[bi].d));const __m128i packed=_mm_loadu_si128(reinterpret_cast<const __m128i*>(w[bi].qs));const __m128i lo=_mm_sub_epi8(_mm_and_si128(packed,mask),bias),hi=_mm_sub_epi8(_mm_and_si128(_mm_srli_epi16(packed,4),mask),bias);for(int h=0;h<2;++h){const __m128i src=h?hi:lo;for(int k=0;k<16;k+=8){__m256 q=_mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_cvtepi8_epi32(_mm_srli_si128(src,k))),ds);std::size_t off=bi*32+h*16+k;a0=_mm256_fmadd_ps(q,_mm256_loadu_ps(x+off),a0);a1=_mm256_fmadd_ps(q,_mm256_loadu_ps(x+stride+off),a1);a2=_mm256_fmadd_ps(q,_mm256_loadu_ps(x+2*stride+off),a2);a3=_mm256_fmadd_ps(q,_mm256_loadu_ps(x+3*stride+off),a3);}}}
 #else
-    // Debug cannot pass a loop variable to _mm_srli_si128. Spell out the two
-    // immediate shifts sequentially so Debug compiles without changing the
-    // optimized Release source/codegen.
     for(std::size_t bi=0;bi<nb;++bi){
         const __m256 ds=_mm256_set1_ps(kernel_fp16_to_fp32(w[bi].d));
         const __m128i packed=_mm_loadu_si128(reinterpret_cast<const __m128i*>(w[bi].qs));
@@ -296,7 +272,31 @@ inline void q8_row_batch4_fp32(const GgufBlockQ8_0*w,const float*x,std::size_t s
 }
 
 inline void q4_row_batch8_fp32(const GgufBlockQ4_0*w,const float*x,std::size_t stride,std::size_t nb,float out[8]){
+#if defined(__AVX2__) && defined(__OPTIMIZE__)
+    // FFN prefill consumes eight activation rows at a time.  Decode each Q4
+    // block once, then reuse that vector across all eight rows instead of
+    // invoking the batch-4 kernel twice and unpacking every weight block twice.
+    __m256 a0=_mm256_setzero_ps(),a1=_mm256_setzero_ps(),a2=_mm256_setzero_ps(),a3=_mm256_setzero_ps();
+    __m256 a4=_mm256_setzero_ps(),a5=_mm256_setzero_ps(),a6=_mm256_setzero_ps(),a7=_mm256_setzero_ps();
+    const __m128i mask=_mm_set1_epi8(0x0f),bias=_mm_set1_epi8(8);
+    for(std::size_t bi=0;bi<nb;++bi){
+        const __m256 ds=_mm256_set1_ps(kernel_fp16_to_fp32(w[bi].d));
+        const __m128i packed=_mm_loadu_si128(reinterpret_cast<const __m128i*>(w[bi].qs));
+        const __m128i lo=_mm_sub_epi8(_mm_and_si128(packed,mask),bias),hi=_mm_sub_epi8(_mm_and_si128(_mm_srli_epi16(packed,4),mask),bias);
+        for(int h=0;h<2;++h){const __m128i src=h?hi:lo;for(int k=0;k<16;k+=8){
+            const __m256 q=_mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_cvtepi8_epi32(_mm_srli_si128(src,k))),ds);
+            const std::size_t off=bi*32+h*16+k;
+            a0=_mm256_fmadd_ps(q,_mm256_loadu_ps(x+off),a0);a1=_mm256_fmadd_ps(q,_mm256_loadu_ps(x+stride+off),a1);
+            a2=_mm256_fmadd_ps(q,_mm256_loadu_ps(x+2*stride+off),a2);a3=_mm256_fmadd_ps(q,_mm256_loadu_ps(x+3*stride+off),a3);
+            a4=_mm256_fmadd_ps(q,_mm256_loadu_ps(x+4*stride+off),a4);a5=_mm256_fmadd_ps(q,_mm256_loadu_ps(x+5*stride+off),a5);
+            a6=_mm256_fmadd_ps(q,_mm256_loadu_ps(x+6*stride+off),a6);a7=_mm256_fmadd_ps(q,_mm256_loadu_ps(x+7*stride+off),a7);
+        }}
+    }
+    alignas(32)float t[8];auto hs=[&](const __m256&v){_mm256_store_ps(t,v);return t[0]+t[1]+t[2]+t[3]+t[4]+t[5]+t[6]+t[7];};
+    out[0]=hs(a0);out[1]=hs(a1);out[2]=hs(a2);out[3]=hs(a3);out[4]=hs(a4);out[5]=hs(a5);out[6]=hs(a6);out[7]=hs(a7);
+#else
     float a[4],b[4];q4_row_batch4_fp32(w,x,stride,nb,a);q4_row_batch4_fp32(w,x+4*stride,stride,nb,b);for(int i=0;i<4;++i){out[i]=a[i];out[i+4]=b[i];}
+#endif
 }
 inline void q8_row_batch8_fp32(const GgufBlockQ8_0*w,const float*x,std::size_t stride,std::size_t nb,float out[8]){
     float a[4],b[4];q8_row_batch4_fp32(w,x,stride,nb,a);q8_row_batch4_fp32(w,x+4*stride,stride,nb,b);for(int i=0;i<4;++i){out[i]=a[i];out[i+4]=b[i];}
@@ -338,29 +338,12 @@ std::uint16_t fp32_to_fp16(float f){
     const std::uint32_t sign=(x>>16)&0x8000u;
     const std::uint32_t raw_exp=(x>>23)&0xffu;
     std::uint32_t mant=x&0x7fffffu;
-    if(raw_exp==0xffu){
-        if(mant==0)return static_cast<std::uint16_t>(sign|0x7c00u);
-        const std::uint32_t payload=((mant>>13)|0x0200u)&0x03ffu;
-        return static_cast<std::uint16_t>(sign|0x7c00u|payload);
-    }
+    if(raw_exp==0xffu){if(mant==0)return static_cast<std::uint16_t>(sign|0x7c00u);const std::uint32_t payload=((mant>>13)|0x0200u)&0x03ffu;return static_cast<std::uint16_t>(sign|0x7c00u|payload);}
     int exp=static_cast<int>(raw_exp)-127+15;
     if(exp>=31)return static_cast<std::uint16_t>(sign|0x7c00u);
-    if(exp<=0){
-        if(exp<-10)return static_cast<std::uint16_t>(sign);
-        mant|=0x800000u;
-        const unsigned shift=static_cast<unsigned>(14-exp);
-        std::uint32_t rounded=mant>>shift;
-        const std::uint32_t remainder=mant&((1u<<shift)-1u);
-        const std::uint32_t halfway=1u<<(shift-1u);
-        if(remainder>halfway||(remainder==halfway&&(rounded&1u)))++rounded;
-        return static_cast<std::uint16_t>(sign|rounded);
-    }
-    std::uint32_t rounded=mant>>13;
-    const std::uint32_t remainder=mant&0x1fffu;
-    if(remainder>0x1000u||(remainder==0x1000u&&(rounded&1u))){
-        ++rounded;
-        if(rounded==0x400u){rounded=0;++exp;if(exp>=31)return static_cast<std::uint16_t>(sign|0x7c00u);}
-    }
+    if(exp<=0){if(exp<-10)return static_cast<std::uint16_t>(sign);mant|=0x800000u;const unsigned shift=static_cast<unsigned>(14-exp);std::uint32_t rounded=mant>>shift;const std::uint32_t remainder=mant&((1u<<shift)-1u);const std::uint32_t halfway=1u<<(shift-1u);if(remainder>halfway||(remainder==halfway&&(rounded&1u)))++rounded;return static_cast<std::uint16_t>(sign|rounded);}
+    std::uint32_t rounded=mant>>13;const std::uint32_t remainder=mant&0x1fffu;
+    if(remainder>0x1000u||(remainder==0x1000u&&(rounded&1u))){++rounded;if(rounded==0x400u){rounded=0;++exp;if(exp>=31)return static_cast<std::uint16_t>(sign|0x7c00u);}}
     return static_cast<std::uint16_t>(sign|(static_cast<std::uint32_t>(exp)<<10)|rounded);
 }
 
@@ -376,24 +359,13 @@ void tensor_matvec(const GgufFile&file,const GgufTensor&t,const float*x,float*y,
 }
 
 void tensor_matvec_group(const GgufFile&file,const MatvecTarget*targets,std::size_t count,const float*x,unsigned threads,WorkerPool*pool){
-    if(!count)return;
-    if(!targets||!x)throw std::runtime_error("null grouped matvec input");
+    if(!count)return;if(!targets||!x)throw std::runtime_error("null grouped matvec input");
     if(count==1){if(!targets[0].tensor||!targets[0].output)throw std::runtime_error("null grouped matvec target");tensor_matvec(file,*targets[0].tensor,x,targets[0].output,threads,pool);return;}
-    const GgufTensor* first=targets[0].tensor;
-    bool shared_q4=first&&targets[0].output&&first->dims.size()>=2&&first->type==GgmlType::Q4_0&&first->ne(0)%32==0;
-    const std::size_t cols=first?first->ne(0):0;
-    for(std::size_t i=0;i<count;++i){
-        if(!targets[i].tensor||!targets[i].output)throw std::runtime_error("null grouped matvec target");
-        const auto&t=*targets[i].tensor;
-        shared_q4=shared_q4&&t.dims.size()>=2&&t.type==GgmlType::Q4_0&&t.ne(0)==cols;
-    }
+    const GgufTensor* first=targets[0].tensor;bool shared_q4=first&&targets[0].output&&first->dims.size()>=2&&first->type==GgmlType::Q4_0&&first->ne(0)%32==0;const std::size_t cols=first?first->ne(0):0;
+    for(std::size_t i=0;i<count;++i){if(!targets[i].tensor||!targets[i].output)throw std::runtime_error("null grouped matvec target");const auto&t=*targets[i].tensor;shared_q4=shared_q4&&t.dims.size()>=2&&t.type==GgmlType::Q4_0&&t.ne(0)==cols;}
     if(!shared_q4){for(std::size_t i=0;i<count;++i)tensor_matvec(file,*targets[i].tensor,x,targets[i].output,threads,pool);return;}
     auto activation=quantize_q8(x,cols);const std::size_t nb=cols/32;
-    for(std::size_t i=0;i<count;++i){
-        const auto&t=*targets[i].tensor;float*y=targets[i].output;const auto t0=Clock::now();const auto rows=t.ne(1);const auto*A=reinterpret_cast<const GgufBlockQ4_0*>(file.tensor_data(t));
-        parallel_rows(rows,threads,pool,[&](std::size_t r0,std::size_t r1){for(std::size_t r=r0;r<r1;++r)y[r]=dot_q4_q8(A+r*nb,activation.q.data(),activation.d.data(),nb);});
-        profile_add(t,1,std::chrono::duration<double,std::milli>(Clock::now()-t0).count());
-    }
+    for(std::size_t i=0;i<count;++i){const auto&t=*targets[i].tensor;float*y=targets[i].output;const auto t0=Clock::now();const auto rows=t.ne(1);const auto*A=reinterpret_cast<const GgufBlockQ4_0*>(file.tensor_data(t));parallel_rows(rows,threads,pool,[&](std::size_t r0,std::size_t r1){for(std::size_t r=r0;r<r1;++r)y[r]=dot_q4_q8(A+r*nb,activation.q.data(),activation.d.data(),nb);});profile_add(t,1,std::chrono::duration<double,std::milli>(Clock::now()-t0).count());}
 }
 
 void tensor_matmul_batch(const GgufFile&file,const GgufTensor&t,const float*x,float*y,std::size_t batch,unsigned threads,WorkerPool*pool){
