@@ -108,11 +108,16 @@ add_executable(memvanta_prefetch_policy_tests tests/prefetch_policy_tests.cpp)
 target_link_libraries(memvanta_prefetch_policy_tests PRIVATE memvanta_core)
 add_test(NAME memvanta_prefetch_policy_tests COMMAND memvanta_prefetch_policy_tests)
 
+add_executable(memvanta_isa_compile_tests tests/isa_compile_tests.cpp)
+target_link_libraries(memvanta_isa_compile_tests PRIVATE memvanta_core)
+add_test(NAME memvanta_isa_compile_tests COMMAND memvanta_isa_compile_tests)
+
 set_tests_properties(
   memvanta_tests
   memvanta_fp16_tests
   memvanta_gguf_limits_tests
   memvanta_prefetch_policy_tests
+  memvanta_isa_compile_tests
   PROPERTIES TIMEOUT 120)
 
 # The concurrency target intentionally performs repeated lifecycle stress and can
@@ -163,6 +168,7 @@ add_dependencies(memvanta_tests
   memvanta_gguf_limits_tests
   memvanta_concurrency_stress_tests
   memvanta_prefetch_policy_tests
+  memvanta_isa_compile_tests
   memvanta_tokenizer_tests)
 
 if(MEMVANTA_BUILD_FUZZER)
