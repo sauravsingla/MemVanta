@@ -15,8 +15,9 @@ namespace memvanta {
 namespace {
 template<class Fn>
 void parallel_rows(std::size_t rows, unsigned threads, Fn fn) {
+    if (!rows) return;
     threads = std::max(1u, threads);
-    threads = std::min<unsigned>(threads, static_cast<unsigned>(rows));
+    if (rows < threads) threads = static_cast<unsigned>(rows);
     if (threads == 1) { fn(0, rows); return; }
 #if defined(MEMVANTA_USE_OPENMP)
     const std::size_t step = (rows + threads - 1) / threads;
@@ -117,28 +118,20 @@ float dot_q4_0(const BlockQ4_0* a, const float* x, std::size_t n) {
         const __m128i mask = _mm_set1_epi8(0x0f);
         const __m128i lo = _mm_and_si128(packed, mask);
         const __m128i hi = _mm_and_si128(_mm_srli_epi16(packed, 4), mask);
-        // Stored as [q0|q1<<4, q2|q3<<4, ...]. Interleave low/high nibbles
-        // back to q0,q1,...,q31, then convert signed values in [-8,7].
         const __m128i u0 = _mm_unpacklo_epi8(lo, hi);
         const __m128i u1 = _mm_unpackhi_epi8(lo, hi);
         const __m128i bias = _mm_set1_epi8(8);
         const __m128i q0 = _mm_sub_epi8(u0, bias);
         const __m128i q1 = _mm_sub_epi8(u1, bias);
         __m256 acc = _mm256_setzero_ps();
-        for (int k=0;k<16;k+=8) {
-            __m128i qb = _mm_srli_si128(q0, k);
-            __m256i qi = _mm256_cvtepi8_epi32(qb);
-            __m256 qf = _mm256_cvtepi32_ps(qi);
-            __m256 xv = _mm256_loadu_ps(x+b*QK+k);
-            acc = _mm256_fmadd_ps(qf, xv, acc);
-        }
-        for (int k=0;k<16;k+=8) {
-            __m128i qb = _mm_srli_si128(q1, k);
-            __m256i qi = _mm256_cvtepi8_epi32(qb);
-            __m256 qf = _mm256_cvtepi32_ps(qi);
-            __m256 xv = _mm256_loadu_ps(x+b*QK+16+k);
-            acc = _mm256_fmadd_ps(qf, xv, acc);
-        }
+        const __m256i q00 = _mm256_cvtepi8_epi32(q0);
+        const __m256i q08 = _mm256_cvtepi8_epi32(_mm_srli_si128(q0, 8));
+        const __m256i q10 = _mm256_cvtepi8_epi32(q1);
+        const __m256i q18 = _mm256_cvtepi8_epi32(_mm_srli_si128(q1, 8));
+        acc = _mm256_fmadd_ps(_mm256_cvtepi32_ps(q00), _mm256_loadu_ps(x+b*QK), acc);
+        acc = _mm256_fmadd_ps(_mm256_cvtepi32_ps(q08), _mm256_loadu_ps(x+b*QK+8), acc);
+        acc = _mm256_fmadd_ps(_mm256_cvtepi32_ps(q10), _mm256_loadu_ps(x+b*QK+16), acc);
+        acc = _mm256_fmadd_ps(_mm256_cvtepi32_ps(q18), _mm256_loadu_ps(x+b*QK+24), acc);
         alignas(32) float tmp[8]; _mm256_store_ps(tmp, acc);
         float s=0.0f; for(float v:tmp) s+=v;
         sum += s*a[b].d;

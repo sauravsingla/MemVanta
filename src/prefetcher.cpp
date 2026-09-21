@@ -9,17 +9,39 @@ void Prefetcher::request(std::uint32_t id){
   {std::lock_guard lk(mu_);if(stop_.load())return;if(pending_.insert(id).second)q_.push_back(id);}
   cv_.notify_one();
 }
-void Prefetcher::stop(){stop_.store(true);cv_.notify_all();if(worker_.joinable())worker_.join();}
+void Prefetcher::stop(){
+  // The condition-variable predicate must be changed while holding the same
+  // mutex used by wait(). Otherwise a stop notification can land between the
+  // worker's predicate check and its transition to sleep, leaving join()
+  // waiting forever on a worker that has already missed its final wake-up.
+  {
+    std::lock_guard lk(mu_);
+    stop_.store(true);
+  }
+  cv_.notify_all();
+  if(worker_.joinable())worker_.join();
+}
 void Prefetcher::loop(){
   while(true){
     std::uint32_t id;
     {std::unique_lock lk(mu_);cv_.wait(lk,[&]{return stop_.load()||!q_.empty();});if(stop_.load())return;id=q_.front();q_.pop_front();}
     try{
-      store_.prefetch(id);auto&s=store_.slice(id);cache_.insert_prefetched(id,store_.ptr(id),s.bytes);store_.release(id);
+      store_.prefetch(id);
+      auto&s=store_.slice(id);
+      cache_.insert_prefetched(id,store_.ptr(id),s.bytes);
+      // Do not issue MADV_DONTNEED from the background worker. The consumer
+      // releases the mapped source after it has copied/consumed the tensor.
+      // This avoids concurrent WILLNEED/DONTNEED churn on the same mapping.
       std::lock_guard lk(mu_);pending_.erase(id);
     }catch(...){
-      {std::lock_guard lk(mu_);if(!error_)error_=std::current_exception();pending_.erase(id);q_.clear();pending_.clear();}
-      stop_.store(true);cv_.notify_all();return;
+      {
+        std::lock_guard lk(mu_);
+        if(!error_)error_=std::current_exception();
+        pending_.erase(id);q_.clear();pending_.clear();
+        stop_.store(true);
+      }
+      cv_.notify_all();
+      return;
     }
   }
 }

@@ -109,6 +109,8 @@ public:
     std::vector<int> generate(const std::vector<int>& prompt,std::size_t n,Sampler& sampler);
     std::size_t position() const { return pos_; }
     std::size_t kv_bytes_allocated() const;
+    std::size_t rope_bytes_allocated() const;
+    std::size_t scratch_bytes_allocated() const;
     unsigned threads() const { return threads_; }
     KVCacheType kv_type() const { return kv_type_; }
 private:
@@ -129,10 +131,16 @@ private:
     std::size_t pos_{};
 
     std::vector<float> x_,n_,q_,k_,v_,att_,proj_,gate_,up_,ff_,out_,logits_,scores_;
+    // Batched prefill scratch is retained and reused instead of allocating eleven
+    // large vectors for every prefill chunk.
+    std::vector<float> batch_x_,batch_n_,batch_q_,batch_k_,batch_v_,batch_att_,batch_proj_,batch_gate_,batch_up_,batch_ff_,batch_out_;
+    // RoPE tables grow only to the highest position actually used, not n_ctx.
     std::vector<float> rope_cos_,rope_sin_;
+    std::size_t rope_cached_positions_{};
     void load_config(std::size_t ctx_override,std::size_t kv_page_tokens);
     const std::vector<float>& forward_batch_impl(const int* tokens,std::size_t batch,bool compute_logits_last);
     void rmsnorm(const std::vector<float>&x,const std::vector<float>&w,std::vector<float>&out) const;
+    void ensure_rope(std::size_t last_pos);
     void rope(std::vector<float>&q,std::vector<float>&k,std::size_t pos) const;
     void rope_ptr(float* q,float* k,std::size_t pos) const;
 };

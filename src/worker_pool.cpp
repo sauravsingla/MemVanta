@@ -20,7 +20,9 @@ void WorkerPool::worker(unsigned tid){
     }
 }
 void WorkerPool::parallel_for(std::size_t n,const std::function<void(std::size_t,std::size_t)>& fn){
-    if(!n)return;if(threads_<=1){fn(0,n);return;}
+    if(!n)return;
+    std::lock_guard<std::mutex> call_lock(call_mu_);
+    if(threads_<=1){fn(0,n);return;}
     {std::lock_guard<std::mutex> lk(m_);fn_=fn;n_=n;finished_=0;error_=nullptr;++generation_;}
     cv_.notify_all();
     const std::size_t step=(n+threads_-1)/threads_,b=std::min(n,step);

@@ -3,7 +3,7 @@ project(memvanta_cpu VERSION 0.7.2 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
-option(MEMVANTA_NATIVE "Enable -march=native" ON)
+option(MEMVANTA_NATIVE "Enable -march=native for Release builds" ON)
 option(MEMVANTA_BUILD_FUZZER "Build the Clang/libFuzzer GGUF parser target" OFF)
 add_library(memvanta_core
     src/common.cpp
@@ -21,9 +21,9 @@ add_library(memvanta_core
     src/worker_pool.cpp
     src/llama_model.cpp)
 target_include_directories(memvanta_core PUBLIC include)
-target_compile_options(memvanta_core PRIVATE -O3 -Wall -Wextra -Wpedantic)
+target_compile_options(memvanta_core PRIVATE -Wall -Wextra -Wpedantic $<$<CONFIG:Release>:-O3>)
 if(MEMVANTA_NATIVE)
-  target_compile_options(memvanta_core PRIVATE -march=native)
+  target_compile_options(memvanta_core PRIVATE $<$<CONFIG:Release>:-march=native>)
 endif()
 find_package(Threads REQUIRED)
 find_package(OpenMP)
@@ -40,14 +40,33 @@ add_executable(memvanta_kernel_bench benchmarks/kernel_bench.cpp)
 target_link_libraries(memvanta_kernel_bench PRIVATE memvanta_core)
 add_executable(memvanta_llama_bench benchmarks/llama_style_bench.cpp)
 target_link_libraries(memvanta_llama_bench PRIVATE memvanta_core)
+
+enable_testing()
 add_executable(memvanta_tests tests/tests.cpp)
 target_link_libraries(memvanta_tests PRIVATE memvanta_core)
-enable_testing()
 add_test(NAME memvanta_tests COMMAND memvanta_tests)
-# Unit tests normally finish in well under a second. Keep a bounded per-test timeout so
-# an intermittent deadlock fails with a useful CTest result instead of consuming the
-# entire GitHub Actions job timeout.
-set_tests_properties(memvanta_tests PROPERTIES TIMEOUT 120)
+
+add_executable(memvanta_fp16_tests tests/fp16_tests.cpp)
+target_link_libraries(memvanta_fp16_tests PRIVATE memvanta_core)
+add_test(NAME memvanta_fp16_tests COMMAND memvanta_fp16_tests)
+
+add_executable(memvanta_gguf_limits_tests tests/gguf_limits_tests.cpp)
+target_link_libraries(memvanta_gguf_limits_tests PRIVATE memvanta_core)
+add_test(NAME memvanta_gguf_limits_tests COMMAND memvanta_gguf_limits_tests)
+
+add_executable(memvanta_concurrency_stress_tests tests/concurrency_stress_tests.cpp)
+target_link_libraries(memvanta_concurrency_stress_tests PRIVATE memvanta_core)
+add_test(NAME memvanta_concurrency_stress_tests COMMAND memvanta_concurrency_stress_tests)
+
+set_tests_properties(
+  memvanta_tests
+  memvanta_fp16_tests
+  memvanta_gguf_limits_tests
+  PROPERTIES TIMEOUT 120)
+# The concurrency target intentionally performs repeated lifecycle stress and can
+# take longer on contended hosted runners. Keep the full stress coverage while
+# retaining a finite bound that still catches true hangs.
+set_tests_properties(memvanta_concurrency_stress_tests PROPERTIES TIMEOUT 300)
 
 add_executable(memvanta_real src/real_main.cpp)
 target_link_libraries(memvanta_real PRIVATE memvanta_core)
@@ -75,6 +94,17 @@ target_link_libraries(memvanta_tokenizer_tests PRIVATE memvanta_core)
 add_test(NAME memvanta_tokenizer_tests COMMAND memvanta_tokenizer_tests
   ${CMAKE_CURRENT_SOURCE_DIR}/tokenizer_fixtures/gpt2_smollm_tokenizer.gguf
   ${CMAKE_CURRENT_SOURCE_DIR}/tokenizer_fixtures/llama_sentencepiece_tokenizer.gguf)
+set_tests_properties(memvanta_tokenizer_tests PROPERTIES TIMEOUT 120)
+
+# Several benchmark workflows intentionally build a narrow target set before
+# running the repository-wide CTest gate.  Keep the historical memvanta_tests
+# target as the test-suite build anchor so those targeted builds cannot leave
+# newly registered test executables missing.
+add_dependencies(memvanta_tests
+  memvanta_fp16_tests
+  memvanta_gguf_limits_tests
+  memvanta_concurrency_stress_tests
+  memvanta_tokenizer_tests)
 
 if(MEMVANTA_BUILD_FUZZER)
   if(NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
