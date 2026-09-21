@@ -11,11 +11,22 @@ using memvanta::PrefetchAdjustment;
 
 namespace {
 
-AdaptivePrefetchWindow good_window(double ms, std::uint64_t evictions = 0) {
+AdaptivePrefetchWindow good_window(double ms,
+                                   std::uint64_t evictions = 0,
+                                   bool has_late_request = true) {
     AdaptivePrefetchWindow w;
     w.average_item_ms = ms;
-    w.consumed = 8;
-    w.useful = 8;
+    if (has_late_request) {
+        // Keep usefulness at the high threshold while providing a concrete
+        // signal that one more unit of look-ahead may help.
+        w.consumed = 10;
+        w.useful = 9;
+        w.late = 1;
+    } else {
+        w.consumed = 8;
+        w.useful = 8;
+        w.late = 0;
+    }
     w.evictions = evictions;
     w.peak_inflight_bytes = 32;
     w.inflight_limit = 256;
@@ -32,6 +43,19 @@ int main() {
         const auto d = c.observe(w);
         CHECK(d.depth == 1);
         CHECK(d.adjustment == PrefetchAdjustment::Down);
+    }
+
+    {
+        // Fully timely prefetch is already satisfying demand. It must not spend
+        // RSS or latency on speculative deeper probes merely because timing is
+        // stable and usefulness is 100%.
+        AdaptivePrefetchController c({1, 3, 0.60, 0.90}, 1);
+        const auto timely = good_window(10.0, 0, false);
+        for (int i = 0; i < 12; ++i) {
+            const auto d = c.observe(timely);
+            CHECK(d.depth == 1);
+            CHECK(d.adjustment == PrefetchAdjustment::None);
+        }
     }
 
     {
