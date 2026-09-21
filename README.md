@@ -23,9 +23,9 @@ To reproduce the published memory measurements against pinned `llama.cpp`, follo
 <!-- BEGIN_CANONICAL_7B_BENCHMARK -->
 | Metric | MemVanta | pinned `llama.cpp` |
 |---|---:|---:|
-| OpenLLaMA 7B v2 Q4_0 peak RSS | **3.80 GiB** | 7.24 GiB |
-| Prompt processing | 3.79 ± 0.02 tok/s | **21.59 ± 0.02 tok/s** |
-| Token generation | 1.92 ± 0.00 tok/s | **9.71 ± 0.11 tok/s** |
+| OpenLLaMA 7B v2 Q4_0 peak RSS | **3.80 GiB** | 7.23 GiB |
+| Prompt processing | 4.04 ± 0.03 tok/s | **44.84 ± 0.24 tok/s** |
+| Token generation | 2.60 ± 0.03 tok/s | **11.97 ± 0.09 tok/s** |
 | Peak-RSS reduction | **47.51%** | baseline |
 
 Source of truth: [`results/openllama-7b-v2-ab/summary.json`](results/openllama-7b-v2-ab/summary.json). The README table is generated from that file; do not edit its numbers by hand.
