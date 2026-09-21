@@ -1,4 +1,4 @@
-memvanta_commit=7f18b320dcfa30cee73f6ac8f21841f0fd0565ff
+memvanta_commit=d290574212a95e4dee7ed7714240f5d9207260d5
 runner_os=Linux
 runner_arch=X64
 llama_cpp_ref=6503355df0eb4f65875012523263c302fe0088c1
