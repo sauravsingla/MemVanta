@@ -44,12 +44,12 @@ AdaptivePrefetchDecision AdaptivePrefetchController::observe(const AdaptivePrefe
     PrefetchAdjustment adjustment = PrefetchAdjustment::None;
 
     if (probing_up_) {
-        // A larger depth is a bounded experiment. Timing windows on hosted CPUs
-        // are noisy, so keep the probe when it is effectively non-regressive
-        // (within 0.5%) and usefulness/memory signals remain healthy. Requiring
-        // a 0.5% measured win caused repeated 1->2->1 oscillation on the 7B
-        // pressure workload even though fixed depth 2 was the throughput oracle.
-        // The explicit byte budget still caps the memory cost of retaining it.
+        // A larger depth is a bounded experiment. Keep it when it is effectively
+        // non-regressive (within 0.5%) and usefulness/memory signals remain
+        // healthy. If the probe is rejected, remember that exact transition so
+        // a homogeneous stream does not repeatedly pay for the same failed
+        // experiment. A material (>5%) slowdown at the proven lower depth is
+        // treated as a phase change and permits one fresh probe later.
         const bool probe_non_regressive = window.average_item_ms <= probe_reference_ms_ * 1.005;
         if (hard_pressure || !probe_non_regressive) {
             if (depth_ > probe_from_depth_) {
@@ -57,10 +57,10 @@ AdaptivePrefetchDecision AdaptivePrefetchController::observe(const AdaptivePrefe
                 adjustment = PrefetchAdjustment::Down;
             }
             previous_window_ms_ = probe_reference_ms_;
-            // A rejected probe is expensive enough that immediately retrying it
-            // can dominate a short stream. Back off for several complete windows
-            // before reconsidering the same higher depth.
-            cooldown_windows_ = 8;
+            rejected_probe_from_depth_ = probe_from_depth_;
+            rejected_probe_reference_ms_ = probe_reference_ms_;
+            rejected_probe_blocked_ = true;
+            cooldown_windows_ = 2;
         } else {
             previous_window_ms_ = window.average_item_ms;
             cooldown_windows_ = 2;
@@ -84,17 +84,30 @@ AdaptivePrefetchDecision AdaptivePrefetchController::observe(const AdaptivePrefe
             stable_windows_ = 0;
         }
 
+        if (rejected_probe_blocked_ && depth_ == rejected_probe_from_depth_ &&
+            std::isfinite(rejected_probe_reference_ms_) &&
+            window.average_item_ms > rejected_probe_reference_ms_ * 1.05) {
+            // The lower-depth baseline has materially changed, so the previous
+            // rejection is stale. Re-open the transition after a short cooldown.
+            rejected_probe_blocked_ = false;
+            cooldown_windows_ = std::max<std::uint32_t>(cooldown_windows_, 2);
+            stable_windows_ = 0;
+        }
+
         // Require two stable windows and 25% headroom inside the cache-safe
-        // limit before probing one additional depth. This prevents the probe
-        // itself from consuming the working-set space it is trying to help.
+        // limit before probing one additional depth. A transition that already
+        // failed in the current steady phase remains blocked until the phase-
+        // change condition above is observed.
         const auto unlimited = std::numeric_limits<std::uint64_t>::max();
         const bool byte_headroom =
             window.inflight_limit == unlimited ||
             (window.inflight_limit > 0 &&
              window.peak_inflight_bytes <
                  window.inflight_limit - (window.inflight_limit / 4));
+        const bool rejected_transition =
+            rejected_probe_blocked_ && depth_ == rejected_probe_from_depth_;
         if (stable_windows_ >= 2 && !cooldown_windows_ && high_usefulness && byte_headroom &&
-            depth_ < config_.max_depth) {
+            !rejected_transition && depth_ < config_.max_depth) {
             probe_reference_ms_ = window.average_item_ms;
             probe_from_depth_ = depth_;
             ++depth_;
