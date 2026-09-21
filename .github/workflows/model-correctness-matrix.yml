@@ -62,9 +62,10 @@ jobs:
           cmake -S . -B build-model-matrix -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
-          cmake --build build-model-matrix \
-            --target memvanta_real memvanta_eval memvanta_tokenize \
-            -j "$(nproc)"
+          # Build the complete configured graph before invoking CTest.  The
+          # correctness matrix deliberately runs the repository unit-test gate,
+          # and CTest does not build missing test executables for us.
+          cmake --build build-model-matrix -j "$(nproc)"
           ctest --test-dir build-model-matrix --output-on-failure
 
       - name: Download and verify model
