@@ -3,7 +3,7 @@ project(memvanta_cpu VERSION 0.7.2 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
-option(MEMVANTA_NATIVE "Enable -march=native" ON)
+option(MEMVANTA_NATIVE "Enable -march=native for Release builds" ON)
 option(MEMVANTA_BUILD_FUZZER "Build the Clang/libFuzzer GGUF parser target" OFF)
 add_library(memvanta_core
     src/common.cpp
@@ -23,7 +23,7 @@ add_library(memvanta_core
 target_include_directories(memvanta_core PUBLIC include)
 target_compile_options(memvanta_core PRIVATE -Wall -Wextra -Wpedantic $<$<CONFIG:Release>:-O3>)
 if(MEMVANTA_NATIVE)
-  target_compile_options(memvanta_core PRIVATE -march=native)
+  target_compile_options(memvanta_core PRIVATE $<$<CONFIG:Release>:-march=native>)
 endif()
 find_package(Threads REQUIRED)
 find_package(OpenMP)
@@ -58,8 +58,6 @@ add_executable(memvanta_concurrency_stress_tests tests/concurrency_stress_tests.
 target_link_libraries(memvanta_concurrency_stress_tests PRIVATE memvanta_core)
 add_test(NAME memvanta_concurrency_stress_tests COMMAND memvanta_concurrency_stress_tests)
 
-# Keep every unit/stress target bounded so any synchronization regression reports the
-# exact stuck executable instead of consuming the whole CI job timeout.
 set_tests_properties(
   memvanta_tests
   memvanta_fp16_tests
