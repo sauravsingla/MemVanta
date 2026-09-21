@@ -67,6 +67,26 @@ MemVanta focuses on:
 
 Current real-model execution supports GGUF files with `general.architecture=llama`.
 
+## Adaptive prefetch and performance guardrails
+
+MemVanta uses **byte-bounded adaptive weight prefetching** with usefulness, memory-pressure, and latency feedback. Look-ahead is constrained by an explicit hot-set budget, and real-model validation checks that prefetching preserves deterministic output while staying inside the configured memory bound.
+
+Performance profiling separates **prefill, decode, FFN, QKV projection, attention output projection, and output-head costs**. CPU-kernel changes are evaluated with repeated same-runner OpenLLaMA 7B A/B tests so changes that regress throughput or memory are rejected before merge. Experimental kernel ideas that fail these gates are treated as negative results rather than promoted optimizations.
+
+## Correctness, reliability, and portability
+
+The validation stack includes:
+
+- exhaustive FP16 conversion coverage, including subnormals, rounding boundaries, NaN, and infinity handling
+- explicit GGUF parser, string, array, allocation, workspace, KV-page, and offset bounds
+- deterministic multi-thread model checks and pinned external-reference comparisons
+- concurrency and prefetch lifecycle stress testing
+- AddressSanitizer, UndefinedBehaviorSanitizer, ThreadSanitizer, and GGUF fuzz-smoke coverage
+- portable x86 runtime dispatch plus optimized AVX2/FMA paths where supported
+- trained-model validation on pinned small and 7B-class GGUF models
+
+These guardrails are designed to keep memory-efficiency work from weakening numerical correctness, determinism, or portability.
+
 ## Contributing
 
 Independent benchmark reproductions, CPU kernel optimizations, GGUF compatibility testing, profiling, and well-documented negative results are welcome.
