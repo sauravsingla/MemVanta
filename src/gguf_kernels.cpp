@@ -79,8 +79,10 @@ void parallel_rows(std::size_t rows, unsigned threads, WorkerPool* pool, Fn fn) 
     threads=std::max(1u,threads);
     if(rows<threads) threads=static_cast<unsigned>(rows);
     if(pool && pool->size()==threads){pool->parallel_for(rows,fn);return;}
-    if(threads==1){fn(0,rows);return;}
 #if defined(MEMVANTA_USE_OPENMP)
+    // Use the same OpenMP-outlined callback for one and many threads so the
+    // compiler cannot give the serial and parallel paths different FP codegen.
+    // The multi-thread hot path is otherwise unchanged.
     const std::size_t step=(rows+threads-1)/threads;
     #pragma omp parallel num_threads(threads)
     {
@@ -88,6 +90,7 @@ void parallel_rows(std::size_t rows, unsigned threads, WorkerPool* pool, Fn fn) 
         const std::size_t a=tid*step,b=std::min(rows,a+step);if(a<b)fn(a,b);
     }
 #else
+    if(threads==1){fn(0,rows);return;}
     std::vector<std::thread> tmp;const std::size_t step=(rows+threads-1)/threads;
     for(unsigned tid=0;tid<threads;++tid){auto a=tid*step,b=std::min(rows,a+step);if(a<b)tmp.emplace_back(fn,a,b);}for(auto&th:tmp)th.join();
 #endif
