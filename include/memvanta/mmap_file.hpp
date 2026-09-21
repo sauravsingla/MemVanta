@@ -2,6 +2,7 @@
 #include <atomic>
 #include <cstddef>
 #include <cstdint>
+#include <mutex>
 #include <string>
 namespace memvanta {
 struct MMapAdviceStats {
@@ -31,6 +32,7 @@ private:
   int fd_ = -1;
   std::byte* data_ = nullptr;
   std::uint64_t size_ = 0;
+  mutable std::mutex advice_mu_;
   mutable std::atomic<std::uint64_t> advice_attempts_{0};
   mutable std::atomic<std::uint64_t> advice_failures_{0};
 };
