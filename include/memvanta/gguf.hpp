@@ -44,9 +44,19 @@ struct GgufTensor {
     std::uint64_t ne(std::size_t i) const { return i < dims.size() ? dims[i] : 1; }
 };
 
+struct GgufParseLimits {
+    std::uint64_t max_tensors{1'000'000};
+    std::uint64_t max_metadata_items{1'000'000};
+    std::uint64_t max_array_elements{1'000'000};
+    std::uint64_t max_string_bytes{64ull<<20};
+    // Approximate heap budget for decoded metadata, tensor descriptors and parser
+    // containers. Tensor payloads remain mmap-backed and are not charged here.
+    std::uint64_t max_parse_heap_bytes{256ull<<20};
+};
+
 class GgufFile {
 public:
-    explicit GgufFile(const std::string& path);
+    explicit GgufFile(const std::string& path,GgufParseLimits limits={});
 
     std::uint32_t version() const { return version_; }
     std::uint64_t data_offset() const { return data_offset_; }
