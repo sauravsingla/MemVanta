@@ -46,12 +46,34 @@ int main() {
         CHECK(rollback.depth == 1);
         CHECK(rollback.adjustment == PrefetchAdjustment::Down);
 
-        // A rejected probe should not immediately oscillate back upward.
-        for (int i = 0; i < 5; ++i) {
+        // A rejected 1->2 probe remains blocked throughout the same steady
+        // phase instead of repeatedly paying the memory/latency cost.
+        for (int i = 0; i < 20; ++i) {
             const auto d = c.observe(good_window(10.0));
             CHECK(d.depth == 1);
             CHECK(d.adjustment == PrefetchAdjustment::None);
         }
+    }
+
+    {
+        AdaptivePrefetchController c({1, 3, 0.60, 0.90}, 1);
+        c.observe(good_window(10.0));
+        c.observe(good_window(10.0));
+        CHECK(c.observe(good_window(10.0)).depth == 2);
+        CHECK(c.observe(good_window(10.10)).depth == 1);
+
+        // A material slowdown at the proven lower depth is a phase change. The
+        // old rejection is then allowed to expire and one fresh probe may run.
+        c.observe(good_window(10.60));
+        bool reprobed = false;
+        for (int i = 0; i < 8; ++i) {
+            const auto d = c.observe(good_window(10.60));
+            if (d.adjustment == PrefetchAdjustment::Up) {
+                reprobed = true;
+                break;
+            }
+        }
+        CHECK(reprobed);
     }
 
     {
