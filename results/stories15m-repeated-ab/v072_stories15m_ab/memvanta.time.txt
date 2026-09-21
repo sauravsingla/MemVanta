@@ -1,18 +1,18 @@
 	Command being timed: "./build-v072/memvanta_real_bench --model stories15M-q4_0.gguf --threads 4 --ctx 128 --prompt 64 --gen 64 --batch 32 --kv f16 --warmup 1 --reps 5 --no-client --csv v072_stories15m_ab/memvanta.csv"
-	User time (seconds): 3.54
+	User time (seconds): 3.28
 	System time (seconds): 0.03
-	Percent of CPU this job got: 305%
-	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:01.17
+	Percent of CPU this job got: 303%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:01.09
 	Average shared text size (kbytes): 0
 	Average unshared data size (kbytes): 0
 	Average stack size (kbytes): 0
 	Average total size (kbytes): 0
-	Maximum resident set size (kbytes): 30256
+	Maximum resident set size (kbytes): 30424
 	Average resident set size (kbytes): 0
 	Major (requiring I/O) page faults: 0
 	Minor (reclaiming a frame) page faults: 2581
-	Voluntary context switches: 7425
-	Involuntary context switches: 1252
+	Voluntary context switches: 7447
+	Involuntary context switches: 976
 	Swaps: 0
 	File system inputs: 0
 	File system outputs: 16
