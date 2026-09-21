@@ -22,12 +22,6 @@ add_library(memvanta_core
     src/llama_model.cpp)
 target_include_directories(memvanta_core PUBLIC include)
 target_compile_options(memvanta_core PRIVATE -Wall -Wextra -Wpedantic $<$<CONFIG:Release>:-O3>)
-# Keep compiler-generated scalar FP contraction consistent between the direct
-# one-thread path and the OpenMP-outlined multi-thread path. Explicit SIMD/FMA
-# intrinsics in the hot batched kernels are unaffected by this compiler option.
-if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-  set_source_files_properties(src/gguf_kernels.cpp PROPERTIES COMPILE_OPTIONS "-ffp-contract=off")
-endif()
 if(MEMVANTA_NATIVE)
   target_compile_options(memvanta_core PRIVATE $<$<CONFIG:Release>:-march=native>)
 endif()
