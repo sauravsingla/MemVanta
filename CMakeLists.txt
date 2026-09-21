@@ -22,6 +22,14 @@ add_library(memvanta_core
     src/llama_model.cpp)
 target_include_directories(memvanta_core PUBLIC include)
 target_compile_options(memvanta_core PRIVATE -Wall -Wextra -Wpedantic $<$<CONFIG:Release>:-O3>)
+# The 7B profile is dominated by the compact Q4/Q8 projection loops in
+# gguf_kernels.cpp. Ask GCC/Clang to unroll only that Release translation unit
+# so hot loops can expose more independent loads/FMAs without enabling
+# fast-math or broad reassociation across the runtime.
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+  set_source_files_properties(src/gguf_kernels.cpp PROPERTIES
+    COMPILE_OPTIONS "$<$<CONFIG:Release>:-funroll-loops>")
+endif()
 if(MEMVANTA_NATIVE)
   target_compile_options(memvanta_core PRIVATE $<$<CONFIG:Release>:-march=native>)
 endif()
