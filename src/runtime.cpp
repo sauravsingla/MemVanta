@@ -5,9 +5,10 @@
 #include <limits>
 #include <memory>
 #include <sys/resource.h>
-#include <unordered_set>
+#include <unordered_map>
 namespace memvanta {
 Runtime::Runtime(const TensorStore&s,RunConfig c):store_(s),cfg_(c),cache_(c.cache_bytes),prefetcher_(s,cache_){
+  if(cfg_.copy_cache && cfg_.prefetch_budget_bytes>cfg_.cache_bytes) cfg_.prefetch_budget_bytes=cfg_.cache_bytes;
   if(cfg_.adaptive_prefetch){
     if(cfg_.adaptive_min_depth==0) cfg_.adaptive_min_depth=1;
     if(cfg_.adaptive_max_depth<cfg_.adaptive_min_depth) cfg_.adaptive_max_depth=cfg_.adaptive_min_depth;
@@ -29,25 +30,43 @@ RunStats Runtime::run_stream(){
   std::uint64_t checksum=1469598103934665603ull,total=0;
   std::uint32_t depth=cfg_.prefetch_depth;
   PrefetchStats pf{};
-  pf.final_depth=depth; pf.min_depth_seen=depth; pf.max_depth_seen=depth; pf.hot_set_budget_bytes=cfg_.copy_cache?cfg_.cache_bytes:0;
-  std::unordered_set<std::uint32_t> requested;
+  const std::uint64_t unlimited=std::numeric_limits<std::uint64_t>::max();
+  const std::uint64_t budget=cfg_.prefetch_budget_bytes?cfg_.prefetch_budget_bytes:(cfg_.copy_cache?cfg_.cache_bytes:unlimited);
+  pf.final_depth=depth; pf.min_depth_seen=depth; pf.max_depth_seen=depth;
+  pf.hot_set_budget_bytes=budget==unlimited?0:budget;
+  std::unordered_map<std::uint32_t,std::uint64_t> requested;
+  std::uint64_t inflight_bytes=0;
   double previous_window_ms=std::numeric_limits<double>::infinity(),window_ms=0.0;
   std::uint32_t window_items=0;
-  std::uint64_t previous_evictions=0;
+  std::uint64_t window_consumed=0,window_useful=0,previous_evictions=0;
   for(std::uint32_t p=0;p<cfg_.passes;++p){
-    requested.clear();
+    requested.clear(); inflight_bytes=0;
     for(std::uint32_t i=0;i<store_.count();++i){
       const auto item_start=std::chrono::steady_clock::now();
-      if(requested.erase(i)){
-        if(cfg_.copy_cache && cache_.contains(i)) ++pf.useful;
-        else ++pf.unused;
+      if(auto it=requested.find(i);it!=requested.end()){
+        const auto bytes=it->second;
+        const bool ready=cfg_.copy_cache&&cache_.contains(i);
+        if(ready){++pf.useful;pf.bytes_useful+=bytes;++window_useful;}
+        else {++pf.unused;++pf.late;pf.bytes_unused+=bytes;}
+        ++window_consumed;
+        inflight_bytes-=std::min(inflight_bytes,bytes);
+        requested.erase(it);
       }
       for(std::uint32_t d=1;d<=depth;++d) if(i+d<store_.count()){
         const auto id=i+d;
-        if(requested.insert(id).second){
-          ++pf.requests;
-          if(cfg_.copy_cache) prefetcher_.request(id); else store_.prefetch(id);
+        if(requested.find(id)!=requested.end())continue;
+        if(cfg_.copy_cache&&cache_.contains(id))continue;
+        const auto bytes=store_.slice(id).bytes;
+        ++pf.eligible;
+        if(budget!=unlimited&&(bytes>budget||inflight_bytes>budget-bytes)){
+          ++pf.skipped_budget;
+          continue;
         }
+        requested.emplace(id,bytes);
+        inflight_bytes+=bytes;
+        pf.max_inflight_bytes=std::max(pf.max_inflight_bytes,inflight_bytes);
+        ++pf.requests;pf.bytes_requested+=bytes;
+        if(cfg_.copy_cache) prefetcher_.request(id); else store_.prefetch(id);
       }
       auto&s=store_.slice(i); const std::byte* ptr=nullptr;
       std::shared_ptr<const std::vector<std::byte>> cache_buf;
@@ -68,17 +87,24 @@ RunStats Runtime::run_stream(){
       if(cfg_.adaptive_prefetch && window_items>=cfg_.adaptive_window){
         const double avg=window_ms/window_items;
         const auto evictions=cache_.stats().evictions;
-        const bool eviction_pressure=cfg_.copy_cache && evictions>previous_evictions;
-        if(eviction_pressure || (previous_window_ms<std::numeric_limits<double>::infinity() && avg>previous_window_ms*1.05)){
+        const bool eviction_pressure=cfg_.copy_cache&&evictions>previous_evictions;
+        const bool have_usefulness=window_consumed>=2;
+        const double useful_ratio=window_consumed?double(window_useful)/double(window_consumed):1.0;
+        const bool low_usefulness=have_usefulness&&useful_ratio<0.50;
+        const bool high_usefulness=have_usefulness&&useful_ratio>=0.75;
+        const bool latency_regression=previous_window_ms<std::numeric_limits<double>::infinity()&&avg>previous_window_ms*1.05;
+        const bool latency_stable=previous_window_ms<std::numeric_limits<double>::infinity()&&avg<=previous_window_ms*1.01;
+        if(eviction_pressure||low_usefulness||latency_regression){
           if(depth>cfg_.adaptive_min_depth){--depth;++pf.adjustments_down;}
-        } else if(previous_window_ms<std::numeric_limits<double>::infinity() && avg<=previous_window_ms*1.01 && depth<cfg_.adaptive_max_depth){
+        } else if(high_usefulness&&latency_stable&&depth<cfg_.adaptive_max_depth&&(budget==unlimited||inflight_bytes<budget)){
           ++depth;++pf.adjustments_up;
         }
-        previous_window_ms=avg; previous_evictions=evictions; window_ms=0.0; window_items=0;
+        previous_window_ms=avg; previous_evictions=evictions; window_ms=0.0; window_items=0; window_consumed=0; window_useful=0;
         pf.min_depth_seen=std::min(pf.min_depth_seen,depth); pf.max_depth_seen=std::max(pf.max_depth_seen,depth);
       }
     }
-    pf.unused+=requested.size();
+    for(const auto& [id,bytes]:requested){(void)id;++pf.unused;pf.bytes_unused+=bytes;}
+    requested.clear();inflight_bytes=0;
   }
   auto end=std::chrono::steady_clock::now(); double sec=std::chrono::duration<double>(end-start).count();
   prefetcher_.stop();
