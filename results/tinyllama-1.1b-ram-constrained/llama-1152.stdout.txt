@@ -2,7 +2,7 @@
   {
     "build_commit": "6503355",
     "build_number": 1,
-    "cpu_info": "INTEL(R) XEON(R) PLATINUM 8573C",
+    "cpu_info": "AMD EPYC 7763 64-Core Processor",
     "gpu_info": "",
     "backends": "CPU",
     "model_filename": "TinyLlama-1.1B-Chat-v1.0.Q4_0.gguf",
@@ -35,18 +35,18 @@
     "n_prompt": 128,
     "n_gen": 0,
     "n_depth": 0,
-    "test_time": "2026-09-21T16:07:52Z",
-    "avg_ns": 1068153660,
+    "test_time": "2026-09-21T18:26:58Z",
+    "avg_ns": 1497073135,
     "stddev_ns": 0,
-    "avg_ts": 119.832946,
+    "avg_ts": 85.500165,
     "stddev_ts": 0.000000,
-    "samples_ns": [ 1068153660 ],
-    "samples_ts": [ 119.833 ]
+    "samples_ns": [ 1497073135 ],
+    "samples_ts": [ 85.5002 ]
   },
   {
     "build_commit": "6503355",
     "build_number": 1,
-    "cpu_info": "INTEL(R) XEON(R) PLATINUM 8573C",
+    "cpu_info": "AMD EPYC 7763 64-Core Processor",
     "gpu_info": "",
     "backends": "CPU",
     "model_filename": "TinyLlama-1.1B-Chat-v1.0.Q4_0.gguf",
@@ -79,12 +79,12 @@
     "n_prompt": 0,
     "n_gen": 32,
     "n_depth": 0,
-    "test_time": "2026-09-21T16:07:55Z",
-    "avg_ns": 915921512,
+    "test_time": "2026-09-21T18:27:01Z",
+    "avg_ns": 671414639,
     "stddev_ns": 0,
-    "avg_ts": 34.937491,
+    "avg_ts": 47.660563,
     "stddev_ts": 0.000000,
-    "samples_ns": [ 915921512 ],
-    "samples_ts": [ 34.9375 ]
+    "samples_ns": [ 671414639 ],
+    "samples_ts": [ 47.6606 ]
   }
 ]
