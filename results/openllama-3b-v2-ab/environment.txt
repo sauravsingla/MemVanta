@@ -7,7 +7,7 @@ model_bytes=1979925184
   "magic": "GGUF",
   "gguf_version": 3
 }
-memvanta_commit=7f18b320dcfa30cee73f6ac8f21841f0fd0565ff
+memvanta_commit=d290574212a95e4dee7ed7714240f5d9207260d5
 llama_cpp_ref=6503355df0eb4f65875012523263c302fe0088c1
 threads=4 prompt=512 gen=128 ctx=768 batch=32 kv=f16 reps=5 warmup=1
 Linux runnervmlun5p 6.17.0-1022-azure #22-Ubuntu SMP Mon Jul 27 17:24:03 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux
@@ -56,5 +56,5 @@ Vulnerability Tsa:                       Vulnerable: No microcode
 Vulnerability Tsx async abort:           Not affected
 Vulnerability Vmscape:                   Not affected
                total        used        free      shared  buff/cache   available
-Mem:            15Gi       1.0Gi        12Gi        53Mi       2.9Gi        14Gi
-Swap:          3.0Gi        68Ki       3.0Gi
+Mem:            15Gi       991Mi        12Gi        52Mi       3.0Gi        14Gi
+Swap:          3.0Gi       8.0Ki       3.0Gi
