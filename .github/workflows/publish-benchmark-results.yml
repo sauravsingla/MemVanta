@@ -202,5 +202,26 @@ jobs:
             exit 0
           fi
           git commit -m "Publish benchmark evidence from ${WORKFLOW_NAME} run ${RUN_ID}"
-          git pull --rebase origin main
-          git push origin HEAD:main
+
+          # Several benchmark workflows can finish almost simultaneously. A
+          # publisher may therefore lose a non-fast-forward push race even
+          # after rebasing. Retry by fetching and rebasing onto the newest main
+          # so each distinct evidence publication gets a chance to land.
+          for attempt in 1 2 3 4 5; do
+            if git push origin HEAD:main; then
+              exit 0
+            fi
+
+            if [ "$attempt" -eq 5 ]; then
+              break
+            fi
+
+            next_attempt=$((attempt + 1))
+            echo "main advanced during publish; rebasing before retry ${next_attempt}/5"
+            git fetch origin main
+            git rebase origin/main
+            sleep $((attempt * 2))
+          done
+
+          echo "Failed to publish benchmark evidence after 5 push attempts." >&2
+          exit 1
