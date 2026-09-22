@@ -80,6 +80,20 @@ jobs:
       - name: Test portable runtime-dispatch build
         run: ctest --test-dir build-portable --output-on-failure
 
+      - name: Verify installable runtime layout
+        shell: bash
+        run: |
+          set -euo pipefail
+          prefix="${PWD}/install-root"
+          cmake --install build-portable --prefix "${prefix}"
+          test -x "${prefix}/bin/memvanta"
+          test -x "${prefix}/bin/memvanta_real"
+          test -x "${prefix}/bin/memvanta_tokenize"
+          test -x "${prefix}/bin/memvanta_gguf_inspect"
+          test -f "${prefix}/share/doc/memvanta_cpu/README.md"
+          test -f "${prefix}/share/doc/memvanta_cpu/LICENSE"
+          test -f "${prefix}/share/doc/memvanta_cpu/CITATION.cff"
+
   arm64-qemu:
     name: arm64-Release-NEON-capable-cross
     runs-on: ubuntu-latest

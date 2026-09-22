@@ -1,0 +1,140 @@
+name: Package Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing vX.Y.Z tag to package or backfill
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  linux-x86-64:
+    name: Linux x86-64 portable release
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Resolve release tag
+        id: release
+        shell: bash
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            tag="${INPUT_TAG}"
+          else
+            tag="${GITHUB_REF_NAME}"
+          fi
+          if [[ ! "${tag}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Release tag must match vX.Y.Z; got: ${tag}" >&2
+            exit 1
+          fi
+          echo "tag=${tag}" >> "${GITHUB_OUTPUT}"
+
+      - name: Checkout release tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.release.outputs.tag }}
+          fetch-depth: 0
+
+      - name: Verify project version matches tag
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          set -euo pipefail
+          project_version="$(sed -nE 's/^project\(memvanta_cpu VERSION ([0-9]+\.[0-9]+\.[0-9]+) LANGUAGES CXX\)$/\1/p' CMakeLists.txt)"
+          if [[ -z "${project_version}" ]]; then
+            echo "Could not read project version from CMakeLists.txt" >&2
+            exit 1
+          fi
+          if [[ "v${project_version}" != "${RELEASE_TAG}" ]]; then
+            echo "CMake project version v${project_version} does not match ${RELEASE_TAG}" >&2
+            exit 1
+          fi
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake ninja-build
+
+      - name: Configure portable Release build
+        run: >-
+          cmake -S . -B build-release -G Ninja
+          -DCMAKE_BUILD_TYPE=Release
+          -DMEMVANTA_NATIVE=OFF
+
+      - name: Build runtime and test suite
+        run: >-
+          cmake --build build-release
+          --target memvanta memvanta_real memvanta_tokenize memvanta_gguf_inspect memvanta_tests
+          -j "$(nproc)"
+
+      - name: Run correctness tests
+        run: ctest --test-dir build-release --output-on-failure
+
+      - name: Assemble release archive
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          set -euo pipefail
+          package="memvanta-${RELEASE_TAG}-linux-x86_64"
+          root="dist/${package}"
+          mkdir -p "${root}/bin" "${root}/share/doc/MemVanta"
+
+          install -m 0755 build-release/memvanta "${root}/bin/memvanta"
+          install -m 0755 build-release/memvanta_real "${root}/bin/memvanta_real"
+          install -m 0755 build-release/memvanta_tokenize "${root}/bin/memvanta_tokenize"
+          install -m 0755 build-release/memvanta_gguf_inspect "${root}/bin/memvanta_gguf_inspect"
+          install -m 0644 README.md LICENSE CITATION.cff "${root}/share/doc/MemVanta/"
+
+          cat > "${root}/BUILD_INFO.txt" <<EOF
+          MemVanta release: ${RELEASE_TAG}
+          Source commit: $(git rev-parse HEAD)
+          Platform: Linux x86_64
+          Build type: Release
+          MEMVANTA_NATIVE: OFF
+          Compiler: $(c++ --version | head -n 1)
+          EOF
+
+          tar -C dist -czf "dist/${package}.tar.gz" "${package}"
+          (
+            cd dist
+            sha256sum "${package}.tar.gz" > "${package}.sha256"
+          )
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.release.outputs.tag }}-linux-x86_64
+          path: |
+            dist/*.tar.gz
+            dist/*.sha256
+          if-no-files-found: error
+
+      - name: Attach assets to GitHub release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          set -euo pipefail
+          if gh release view "${RELEASE_TAG}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+            gh release upload "${RELEASE_TAG}" dist/*.tar.gz dist/*.sha256 \
+              --repo "${GITHUB_REPOSITORY}" --clobber
+          else
+            gh release create "${RELEASE_TAG}" dist/*.tar.gz dist/*.sha256 \
+              --repo "${GITHUB_REPOSITORY}" \
+              --title "MemVanta ${RELEASE_TAG}" \
+              --generate-notes \
+              --prerelease
+          fi
