@@ -1,4 +1,4 @@
-commit=ee95fc0e6723985c98c1fadf8be53adcfea451de
+commit=69a78dd1301d2c3fc05a147a06df79c7e8197cd7
 model_sha256=892f6e2e840ed98bb7bc1d74da67ae0cca52b2d90b0316d0a7e66a37a5a60760
 threads=4 prompt=128 gen=16 ctx=256 kv=f16
 Linux runnervmlun5p 6.17.0-1022-azure #22-Ubuntu SMP Mon Jul 27 17:24:03 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux
@@ -47,5 +47,5 @@ Vulnerability Tsa:                       Vulnerable: No microcode
 Vulnerability Tsx async abort:           Not affected
 Vulnerability Vmscape:                   Not affected
                total        used        free      shared  buff/cache   available
-Mem:            15Gi       998Mi       8.4Gi        47Mi       6.6Gi        14Gi
+Mem:            15Gi       992Mi       8.4Gi        47Mi       6.7Gi        14Gi
 Swap:          3.0Gi          0B       3.0Gi

@@ -1,18 +1,18 @@
 	Command being timed: "timeout --signal=TERM --kill-after=15s 3600 ./build-tune/memvanta_profile --model openlm-research-open_llama_7b_v2-Q4_0.gguf --threads 4 --ctx 256 --prompt 128 --gen 16 --batch 16 --csv sevenb-ffn-tuning/fp32-b16.csv"
-	User time (seconds): 116.26
-	System time (seconds): 0.49
+	User time (seconds): 116.85
+	System time (seconds): 0.42
 	Percent of CPU this job got: 234%
-	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:49.68
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:50.04
 	Average shared text size (kbytes): 0
 	Average unshared data size (kbytes): 0
 	Average stack size (kbytes): 0
 	Average total size (kbytes): 0
-	Maximum resident set size (kbytes): 3814972
+	Maximum resident set size (kbytes): 3814936
 	Average resident set size (kbytes): 0
 	Major (requiring I/O) page faults: 0
-	Minor (reclaiming a frame) page faults: 93624
-	Voluntary context switches: 13248
-	Involuntary context switches: 26365
+	Minor (reclaiming a frame) page faults: 93623
+	Voluntary context switches: 13249
+	Involuntary context switches: 25949
 	Swaps: 0
 	File system inputs: 0
 	File system outputs: 72
