@@ -1,18 +1,18 @@
 	Command being timed: "timeout --signal=TERM --kill-after=30s 3600 ./llama.cpp/build/bin/llama-bench -m openllama-3b-v2-q4_0.gguf -p 512 -n 128 -t 4 -r 5 -b 32 -ub 32 -ctk f16 -ctv f16 -ngl 0 -o json"
-	User time (seconds): 664.29
-	System time (seconds): 0.41
-	Percent of CPU this job got: 397%
-	Elapsed (wall clock) time (h:mm:ss or m:ss): 2:47.29
+	User time (seconds): 414.27
+	System time (seconds): 0.75
+	Percent of CPU this job got: 398%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 1:44.10
 	Average shared text size (kbytes): 0
 	Average unshared data size (kbytes): 0
 	Average stack size (kbytes): 0
 	Average total size (kbytes): 0
-	Maximum resident set size (kbytes): 3882456
+	Maximum resident set size (kbytes): 3895552
 	Average resident set size (kbytes): 0
 	Major (requiring I/O) page faults: 0
-	Minor (reclaiming a frame) page faults: 13081
-	Voluntary context switches: 14
-	Involuntary context switches: 99132
+	Minor (reclaiming a frame) page faults: 12768
+	Voluntary context switches: 18
+	Involuntary context switches: 64014
 	Swaps: 0
 	File system inputs: 0
 	File system outputs: 16
