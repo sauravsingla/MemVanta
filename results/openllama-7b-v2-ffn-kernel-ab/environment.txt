@@ -1,5 +1,5 @@
-baseline_commit=dc463153c9e3a092ffd15e6d7078060a2d7109ad
-candidate_commit=69a78dd1301d2c3fc05a147a06df79c7e8197cd7
+baseline_commit=5dc19e1f8167356afaed17175dcf89b5409c1371
+candidate_commit=f36a42188ad0a1b43a21077e4403bc7c0a984268
 ab_schema=9
 reps=3
 performance_tolerance_pct=2
@@ -51,5 +51,5 @@ Vulnerability Tsa:                       Vulnerable: No microcode
 Vulnerability Tsx async abort:           Not affected
 Vulnerability Vmscape:                   Not affected
                total        used        free      shared  buff/cache   available
-Mem:            15Gi       1.0Gi       8.3Gi        47Mi       6.7Gi        14Gi
+Mem:            15Gi       999Mi       8.3Gi        48Mi       6.7Gi        14Gi
 Swap:          3.0Gi          0B       3.0Gi
