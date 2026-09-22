@@ -4,7 +4,7 @@
 
 MemVanta is a memory-first local LLM runtime for running quantized Llama-family GGUF models on CPUs with limited RAM. It uses mmap-backed model access, paged KV cache, Q4/Q8 kernels, and bounded adaptive prefetching, with reproducible memory and throughput benchmarks against pinned `llama.cpp`.
 
-[Website](https://sauravsingla.github.io/MemVanta/) · [7B benchmark](https://sauravsingla.github.io/MemVanta/benchmark/) · [DOI](https://doi.org/10.5281/zenodo.22886357) · [Reproduce](https://sauravsingla.github.io/MemVanta/reproduce/) · [Contributing](CONTRIBUTING.md)
+[Website](https://sauravsingla.github.io/MemVanta/) · [Getting started](https://sauravsingla.github.io/MemVanta/getting-started/) · [7B benchmark](https://sauravsingla.github.io/MemVanta/benchmark/) · [DOI](https://doi.org/10.5281/zenodo.22886357) · [Reproduce](https://sauravsingla.github.io/MemVanta/reproduce/) · [Contributing](CONTRIBUTING.md)
 
 ## Why MemVanta?
 
@@ -33,7 +33,9 @@ A separate cgroup-v2 experiment also measured execution under tight memory limit
 
 [Benchmark details](https://sauravsingla.github.io/MemVanta/benchmark/) · [Raw evidence](results/openllama-7b-v2-ab/) · [Methodology](docs/MEMORY_BENCHMARKING.md)
 
-## Quick start
+## Quick start: run a GGUF model
+
+Build the project:
 
 ```bash
 git clone https://github.com/sauravsingla/MemVanta.git
@@ -43,7 +45,21 @@ cmake --build build -j
 ctest --test-dir build --output-on-failure
 ```
 
-See the repository documentation and benchmark evidence for model-specific execution and reproduction commands.
+Then run trained-model text generation with a supported Llama-family GGUF model that you are licensed to use:
+
+```bash
+./build/memvanta_real \
+  --model /path/to/model.gguf \
+  --prompt "Hello from MemVanta" \
+  --n 64 \
+  --threads 4 \
+  --ctx 2048 \
+  --temperature 0
+```
+
+`memvanta_real` is the trained-model inference CLI. The separate `memvanta run <file>` command exercises mapped streaming/cache behavior and reports memory telemetry; it is not the text-generation command.
+
+[Full getting-started guide](https://sauravsingla.github.io/MemVanta/getting-started/)
 
 ## How low-memory inference works
 
@@ -92,6 +108,7 @@ Independent results that confirm, narrow, or contradict the current measurements
 ## Project links
 
 - [Project website](https://sauravsingla.github.io/MemVanta/)
+- [Getting started](https://sauravsingla.github.io/MemVanta/getting-started/)
 - [7B benchmark](https://sauravsingla.github.io/MemVanta/benchmark/)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Results](results/)
