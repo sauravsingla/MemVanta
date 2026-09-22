@@ -1,10 +1,18 @@
 # MemVanta
 
-**Low-memory C++ LLM inference runtime for quantized GGUF models on CPU.**
+**Low-memory C++20 LLM inference runtime for quantized GGUF models on CPU.**
 
 MemVanta is a memory-first local LLM runtime for running quantized Llama-family GGUF models on CPUs with limited RAM. It uses mmap-backed model access, paged KV cache, Q4/Q8 kernels, and bounded adaptive prefetching, with reproducible memory and throughput benchmarks against pinned `llama.cpp`.
 
-[Website](https://sauravsingla.github.io/MemVanta/) · [DOI](https://doi.org/10.5281/zenodo.22886357) · [Benchmark evidence](results/openllama-7b-v2-ab/) · [Reproduce](docs/EXTERNAL_REPRODUCTION.md) · [Contributing](CONTRIBUTING.md)
+[Website](https://sauravsingla.github.io/MemVanta/) · [7B benchmark](https://sauravsingla.github.io/MemVanta/benchmark/) · [DOI](https://doi.org/10.5281/zenodo.22886357) · [Reproduce](https://sauravsingla.github.io/MemVanta/reproduce/) · [Contributing](CONTRIBUTING.md)
+
+## Why MemVanta?
+
+MemVanta explores a specific systems trade-off: **how much resident memory can CPU LLM inference avoid while still executing a real quantized GGUF model correctly?**
+
+It is designed for experiments where RAM pressure matters more than maximum token throughput, including constrained developer machines, edge systems, and research into memory-aware local inference.
+
+The project is intentionally transparent about the cost of that trade-off. MemVanta is **memory-first**; it does not claim to be faster than `llama.cpp`.
 
 ## 7B memory benchmark vs llama.cpp
 
@@ -19,13 +27,13 @@ MemVanta is a memory-first local LLM runtime for running quantized Llama-family 
 Source of truth: [`results/openllama-7b-v2-ab/summary.json`](results/openllama-7b-v2-ab/summary.json). The README table is generated from that file; do not edit its numbers by hand.
 <!-- END_CANONICAL_7B_BENCHMARK -->
 
-MemVanta is **memory-first**; pinned `llama.cpp` is substantially faster in this test.
+The result above is a repeated same-model CPU A/B test on OpenLLaMA 7B v2 Q4_0. It applies to the tested model, workload, host, and pinned comparison runtime; it is not a universal memory-reduction claim.
 
-[Raw evidence](results/openllama-7b-v2-ab/) · [Methodology](docs/MEMORY_BENCHMARKING.md)
+A separate cgroup-v2 experiment also measured execution under tight memory limits. It is systems evidence, **not a physical-RAM requirement**.
 
-A separate cgroup-v2 test also measured execution under tight memory limits. It is systems evidence, **not a physical-RAM requirement**. [Results](results/openllama-7b-v2-ram-constrained/)
+[Benchmark details](https://sauravsingla.github.io/MemVanta/benchmark/) · [Raw evidence](results/openllama-7b-v2-ab/) · [Methodology](docs/MEMORY_BENCHMARKING.md)
 
-## Build
+## Quick start
 
 ```bash
 git clone https://github.com/sauravsingla/MemVanta.git
@@ -35,24 +43,59 @@ cmake --build build -j
 ctest --test-dir build --output-on-failure
 ```
 
-## Low-memory LLM inference
+See the repository documentation and benchmark evidence for model-specific execution and reproduction commands.
 
-- mmap-backed model access
-- paged KV cache
-- Q4/Q8 quantized CPU kernels
-- byte-bounded adaptive prefetching
-- repeated A/B performance and memory gates
+## How low-memory inference works
 
-## Scope
+MemVanta's runtime is organized around explicit memory ownership and bounded data movement:
 
-Trained-model execution currently supports GGUF models with `general.architecture=llama`.
+- **mmap-backed GGUF access** avoids requiring an unconditional full-model copy in a separate heap buffer.
+- **Bounded tensor slices and caching** keep model access under explicit memory policy.
+- **Paged KV cache** manages attention state with defined bounds.
+- **Q4/Q8 quantized CPU kernels** provide compact execution paths for supported tensors.
+- **Byte-bounded adaptive prefetching** can change look-ahead behavior without silently expanding the memory budget.
+- **Runtime CPU dispatch and AVX2/FMA paths** improve hot paths while portability and correctness remain independently tested.
 
-The GGUF parser also validates pinned Qwen2 files, but **Qwen2 inference is not implemented**.
+[Low-memory inference guide](https://sauravsingla.github.io/MemVanta/low-memory-llm-inference/) · [Architecture](https://sauravsingla.github.io/MemVanta/architecture/)
 
-CI covers correctness, sanitizers, deterministic model checks, x86 portability, AVX2/FMA paths, and ARM64 cross-build/QEMU validation.
+## Current model scope
 
-## Status
+Trained-model execution currently supports GGUF models with:
 
-Active research prototype for local LLM and CPU inference with trained-model evidence up to 7B. Results apply to the tested models, settings, and hosts; independent reproduction is welcome.
+```text
+general.architecture=llama
+```
 
-[Architecture](docs/ARCHITECTURE.md) · [Results](results/) · [Citation](CITATION.cff) · [License](LICENSE)
+The GGUF parser also validates pinned Qwen2 files, but **Qwen2 inference is not implemented**. Parser/container compatibility should not be interpreted as trained-model execution support.
+
+The project currently has trained-model evidence up to 7B and remains an active research / engineering prototype rather than a drop-in replacement for a mature general-purpose inference runtime.
+
+## Validation and reproducibility
+
+MemVanta's validation stack includes:
+
+- Release and Debug correctness checks
+- AddressSanitizer / UndefinedBehaviorSanitizer and ThreadSanitizer lanes
+- parser limits and fuzz smoke
+- deterministic trained-model checks
+- x86 portability and runtime-dispatch validation
+- AVX2/FMA paths
+- ARM64 cross-build and QEMU validation
+- repeated same-machine A/B memory and throughput measurements
+
+Published benchmark methodology requires the identical GGUF artifact for both runtimes, a pinned comparison-runtime revision, matched workload parameters, warm-up plus repeated measured runs, and throughput reporting beside memory results.
+
+Independent results that confirm, narrow, or contradict the current measurements are useful. Reproduction reports should include model hashes, runtime commits, machine metadata, commands, and raw outputs.
+
+[Reproduction guide](https://sauravsingla.github.io/MemVanta/reproduce/) · [Memory benchmarking protocol](docs/MEMORY_BENCHMARKING.md)
+
+## Project links
+
+- [Project website](https://sauravsingla.github.io/MemVanta/)
+- [7B benchmark](https://sauravsingla.github.io/MemVanta/benchmark/)
+- [Architecture](docs/ARCHITECTURE.md)
+- [Results](results/)
+- [Citation](CITATION.cff)
+- [Zenodo DOI](https://doi.org/10.5281/zenodo.22886357)
+- [Contributing](CONTRIBUTING.md)
+- [License](LICENSE)
