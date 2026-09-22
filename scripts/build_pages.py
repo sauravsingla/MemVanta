@@ -57,8 +57,23 @@ def main() -> None:
     sitemap = render(SITEMAP.read_text(encoding="utf-8"), values, SITEMAP)
     (OUT / "sitemap.xml").write_text(sitemap, encoding="utf-8")
 
-    for asset in ("robots.txt", "styles.css"):
-        shutil.copy2(SITE / asset, OUT / asset)
+    # Copy every non-template site asset so discoverability files such as
+    # robots.txt, llms.txt, favicons, and shared CSS cannot be forgotten when
+    # the site grows. Text assets are rendered from the same canonical values
+    # when they intentionally contain benchmark placeholders.
+    for source in sorted(SITE.rglob("*")):
+        if not source.is_file() or source == SITEMAP or source.name.endswith(".template.html"):
+            continue
+        relative = source.relative_to(SITE)
+        destination = OUT / relative
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        if source.suffix.lower() in {".txt", ".css", ".svg", ".xml"} or source.name == "robots.txt":
+            destination.write_text(
+                render(source.read_text(encoding="utf-8"), values, source),
+                encoding="utf-8",
+            )
+        else:
+            shutil.copy2(source, destination)
 
     (OUT / ".nojekyll").write_text("", encoding="utf-8")
 
