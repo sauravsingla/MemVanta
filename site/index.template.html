@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>MemVanta — Low-Memory C++ LLM Inference for GGUF on CPU</title>
+  <meta name="description" content="MemVanta is a memory-first C++20 LLM inference runtime for quantized GGUF models on CPU, with mmap-backed weights, paged KV cache, Q4/Q8 kernels, adaptive prefetching, and reproducible llama.cpp benchmarks.">
+  <meta name="keywords" content="MemVanta, low-memory LLM inference, C++ LLM inference, GGUF, CPU inference, local LLM, llama.cpp benchmark, quantized LLM, paged KV cache, mmap, Q4, Q8">
+  <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1">
+  <link rel="canonical" href="https://sauravsingla.github.io/MemVanta/">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="MemVanta — Low-Memory C++ LLM Inference for GGUF on CPU">
+  <meta property="og:description" content="Memory-first local LLM inference on CPU with reproducible GGUF benchmarks against llama.cpp.">
+  <meta property="og:url" content="https://sauravsingla.github.io/MemVanta/">
+  <meta property="og:site_name" content="MemVanta">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="MemVanta — Low-Memory C++ LLM Inference">
+  <meta name="twitter:description" content="Memory-first C++20 runtime for quantized GGUF models on CPU.">
+  <meta name="theme-color" content="#111827">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareSourceCode",
+    "name": "MemVanta",
+    "description": "Low-memory C++20 LLM inference runtime for quantized GGUF models on CPU.",
+    "codeRepository": "https://github.com/sauravsingla/MemVanta",
+    "url": "https://sauravsingla.github.io/MemVanta/",
+    "programmingLanguage": "C++",
+    "license": "https://www.apache.org/licenses/LICENSE-2.0",
+    "keywords": "low-memory LLM inference, GGUF, CPU inference, local LLM, quantization, llama.cpp benchmark, paged KV cache"
+  }
+  </script>
+  <style>
+    :root { color-scheme: light dark; --bg:#0b1020; --panel:#121a2d; --text:#edf2f7; --muted:#a7b0c0; --line:#26324a; --accent:#8ec5ff; --good:#9ae6b4; }
+    * { box-sizing:border-box; }
+    html { scroll-behavior:smooth; }
+    body { margin:0; font:16px/1.6 ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; background:var(--bg); color:var(--text); }
+    a { color:var(--accent); text-decoration:none; }
+    a:hover { text-decoration:underline; }
+    .wrap { width:min(980px, calc(100% - 36px)); margin:auto; }
+    header { padding:72px 0 46px; border-bottom:1px solid var(--line); }
+    .eyebrow { font-size:.82rem; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); }
+    h1 { margin:.25rem 0 .65rem; font-size:clamp(2.5rem,7vw,5rem); line-height:1; letter-spacing:-.04em; }
+    .lead { max-width:760px; margin:0 0 1.4rem; font-size:clamp(1.08rem,2.5vw,1.35rem); color:var(--muted); }
+    .actions { display:flex; flex-wrap:wrap; gap:.75rem; }
+    .btn { display:inline-block; padding:.68rem 1rem; border:1px solid var(--line); border-radius:10px; font-weight:650; }
+    .btn.primary { background:var(--text); color:var(--bg); border-color:var(--text); }
+    main section { padding:44px 0; border-bottom:1px solid var(--line); }
+    h2 { margin:0 0 1rem; font-size:1.55rem; letter-spacing:-.02em; }
+    .grid { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
+    .card { padding:19px; border:1px solid var(--line); border-radius:14px; background:var(--panel); }
+    .big { font-size:1.9rem; font-weight:760; line-height:1.1; }
+    .label { margin-top:.4rem; color:var(--muted); font-size:.9rem; }
+    .good { color:var(--good); }
+    table { width:100%; border-collapse:collapse; overflow:hidden; }
+    th, td { padding:11px 12px; border-bottom:1px solid var(--line); text-align:right; }
+    th:first-child, td:first-child { text-align:left; }
+    th { color:var(--muted); font-weight:600; }
+    .note { color:var(--muted); font-size:.92rem; }
+    .features { display:grid; grid-template-columns:1fr 1fr; gap:12px 30px; padding:0; list-style:none; }
+    .features li::before { content:"→"; margin-right:.55rem; color:var(--accent); }
+    pre { padding:16px; overflow:auto; border:1px solid var(--line); border-radius:12px; background:var(--panel); }
+    code { font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }
+    footer { padding:32px 0 54px; color:var(--muted); font-size:.92rem; }
+    @media (max-width:720px) { header { padding-top:48px; } .grid { grid-template-columns:1fr; } .features { grid-template-columns:1fr; } table { font-size:.9rem; } th,td { padding:9px 7px; } }
+    @media (prefers-color-scheme:light) { :root { --bg:#fff; --panel:#f8fafc; --text:#111827; --muted:#596579; --line:#dbe3ee; --accent:#0759b7; --good:#08783f; } }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <div class="eyebrow">Open-source · C++20 · CPU · GGUF</div>
+      <h1>MemVanta</h1>
+      <p class="lead">A memory-first C++ LLM inference runtime for quantized GGUF models on CPUs with limited RAM. MemVanta uses mmap-backed model access, paged KV cache, Q4/Q8 kernels, and bounded adaptive prefetching.</p>
+      <div class="actions">
+        <a class="btn primary" href="https://github.com/sauravsingla/MemVanta">View on GitHub</a>
+        <a class="btn" href="https://github.com/sauravsingla/MemVanta/blob/main/docs/EXTERNAL_REPRODUCTION.md">Reproduce benchmark</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section>
+      <h2>7B memory benchmark vs llama.cpp</h2>
+      <div class="grid">
+        <div class="card"><div class="big">{{MEMVANTA_RSS_GIB}} GiB</div><div class="label">MemVanta peak RSS</div></div>
+        <div class="card"><div class="big">{{LLAMA_RSS_GIB}} GiB</div><div class="label">pinned llama.cpp peak RSS</div></div>
+        <div class="card"><div class="big good">{{RSS_REDUCTION}}%</div><div class="label">peak-RSS reduction</div></div>
+      </div>
+      <div style="height:18px"></div>
+      <table aria-label="OpenLLaMA 7B v2 Q4_0 benchmark">
+        <thead><tr><th>Metric</th><th>MemVanta</th><th>pinned llama.cpp</th></tr></thead>
+        <tbody>
+          <tr><td>OpenLLaMA 7B v2 Q4_0 peak RSS</td><td><strong>{{MEMVANTA_RSS_GIB}} GiB</strong></td><td>{{LLAMA_RSS_GIB}} GiB</td></tr>
+          <tr><td>Prompt processing</td><td>{{MEMVANTA_PP}} tok/s</td><td><strong>{{LLAMA_PP}} tok/s</strong></td></tr>
+          <tr><td>Token generation</td><td>{{MEMVANTA_TG}} tok/s</td><td><strong>{{LLAMA_TG}} tok/s</strong></td></tr>
+        </tbody>
+      </table>
+      <p class="note">MemVanta is memory-first; pinned llama.cpp is substantially faster in this test. Results are scoped to the tested model, settings, and host. <a href="https://github.com/sauravsingla/MemVanta/tree/main/results/openllama-7b-v2-ab">Raw evidence</a> · <a href="https://github.com/sauravsingla/MemVanta/blob/main/docs/MEMORY_BENCHMARKING.md">Methodology</a></p>
+    </section>
+
+    <section>
+      <h2>Low-memory local LLM inference</h2>
+      <ul class="features">
+        <li>mmap-backed GGUF model access</li>
+        <li>Paged KV cache with explicit bounds</li>
+        <li>Q4/Q8 quantized CPU kernels</li>
+        <li>Adaptive, byte-bounded prefetching</li>
+        <li>AVX2/FMA optimized paths</li>
+        <li>ARM64 cross-build and QEMU validation</li>
+        <li>Repeated performance and memory A/B gates</li>
+        <li>Reproducible llama.cpp comparisons</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Build</h2>
+      <pre><code>git clone https://github.com/sauravsingla/MemVanta.git
+cd MemVanta
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j
+ctest --test-dir build --output-on-failure</code></pre>
+    </section>
+
+    <section>
+      <h2>Current scope</h2>
+      <p>Trained-model execution currently supports GGUF models with <code>general.architecture=llama</code>. The GGUF parser also validates pinned Qwen2 files, but Qwen2 inference is not implemented.</p>
+      <p class="note">MemVanta is an active research prototype with trained-model evidence up to 7B. Independent reproduction is welcome.</p>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <a href="https://github.com/sauravsingla/MemVanta">Repository</a> ·
+      <a href="https://github.com/sauravsingla/MemVanta/tree/main/results">Results</a> ·
+      <a href="https://github.com/sauravsingla/MemVanta/blob/main/CITATION.cff">Citation</a> ·
+      <a href="https://github.com/sauravsingla/MemVanta/blob/main/LICENSE">Apache-2.0</a>
+      <p>Benchmark page generated from the repository's canonical result on {{LASTMOD}}.</p>
+    </div>
+  </footer>
+</body>
+</html>
