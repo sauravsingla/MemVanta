@@ -7,6 +7,7 @@ on:
       - "site/**"
       - "scripts/build_pages.py"
       - "scripts/check_pages.py"
+      - ".github/scripts/check_social_preview.py"
       - "results/openllama-7b-v2-ab/summary.json"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
@@ -32,6 +33,9 @@ jobs:
 
       - name: Validate site discovery and internal links
         run: python3 scripts/check_pages.py _site
+
+      - name: Validate large social previews
+        run: python3 .github/scripts/check_social_preview.py _site
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
