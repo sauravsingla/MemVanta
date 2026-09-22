@@ -4,7 +4,7 @@
 
 MemVanta is a memory-first local LLM runtime for running quantized Llama-family GGUF models on CPUs with limited RAM. It uses mmap-backed model access, paged KV cache, Q4/Q8 kernels, and bounded adaptive prefetching, with reproducible memory and throughput benchmarks against pinned `llama.cpp`.
 
-[Website](https://sauravsingla.github.io/MemVanta/) · [Getting started](https://sauravsingla.github.io/MemVanta/getting-started/) · [7B benchmark](https://sauravsingla.github.io/MemVanta/benchmark/) · [DOI](https://doi.org/10.5281/zenodo.22886357) · [Reproduce](https://sauravsingla.github.io/MemVanta/reproduce/) · [Contributing](CONTRIBUTING.md)
+[Website](https://sauravsingla.github.io/MemVanta/) · [Getting started](https://sauravsingla.github.io/MemVanta/getting-started/) · [Latest release](https://github.com/sauravsingla/MemVanta/releases/tag/v0.8.1) · [7B benchmark](https://sauravsingla.github.io/MemVanta/benchmark/) · [DOI](https://doi.org/10.5281/zenodo.22886357) · [Reproduce](https://sauravsingla.github.io/MemVanta/reproduce/) · [Contributing](CONTRIBUTING.md)
 
 ## Why MemVanta?
 
@@ -33,7 +33,34 @@ A separate cgroup-v2 experiment also measured execution under tight memory limit
 
 [Benchmark details](https://sauravsingla.github.io/MemVanta/benchmark/) · [Raw evidence](results/openllama-7b-v2-ab/) · [Methodology](docs/MEMORY_BENCHMARKING.md)
 
-## Quick start: run a GGUF model
+## Download prebuilt release (Linux x86-64)
+
+The `v0.8.1` pre-release includes a portable Linux x86-64 build (`MEMVANTA_NATIVE=OFF`) plus a SHA-256 checksum. Download, verify, and extract it with:
+
+```bash
+curl -fLO https://github.com/sauravsingla/MemVanta/releases/download/v0.8.1/memvanta-v0.8.1-linux-x86_64.tar.gz
+curl -fLO https://github.com/sauravsingla/MemVanta/releases/download/v0.8.1/memvanta-v0.8.1-linux-x86_64.sha256
+sha256sum -c memvanta-v0.8.1-linux-x86_64.sha256
+tar -xzf memvanta-v0.8.1-linux-x86_64.tar.gz
+cd memvanta-v0.8.1-linux-x86_64
+./bin/memvanta_real --help
+```
+
+Then run trained-model text generation with a supported Llama-family GGUF model that you are licensed to use:
+
+```bash
+./bin/memvanta_real \
+  --model /path/to/model.gguf \
+  --prompt "Hello from MemVanta" \
+  --n 64 \
+  --threads 4 \
+  --ctx 2048 \
+  --temperature 0
+```
+
+[Download MemVanta v0.8.1](https://github.com/sauravsingla/MemVanta/releases/tag/v0.8.1)
+
+## Build from source and run a GGUF model
 
 Build the project:
 
@@ -109,6 +136,7 @@ Independent results that confirm, narrow, or contradict the current measurements
 
 - [Project website](https://sauravsingla.github.io/MemVanta/)
 - [Getting started](https://sauravsingla.github.io/MemVanta/getting-started/)
+- [Latest release: v0.8.1](https://github.com/sauravsingla/MemVanta/releases/tag/v0.8.1)
 - [7B benchmark](https://sauravsingla.github.io/MemVanta/benchmark/)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Results](results/)
