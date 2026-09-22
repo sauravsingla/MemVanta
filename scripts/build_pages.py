@@ -7,9 +7,9 @@ from datetime import date
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+SITE = ROOT / "site"
 SUMMARY = ROOT / "results/openllama-7b-v2-ab/summary.json"
-TEMPLATE = ROOT / "site/index.template.html"
-SITEMAP = ROOT / "site/sitemap.xml"
+SITEMAP = SITE / "sitemap.xml"
 OUT = ROOT / "_site"
 
 
@@ -17,11 +17,17 @@ def gib_from_kib(value: float) -> str:
     return f"{value / 1024 / 1024:.2f}"
 
 
+def render(text: str, values: dict[str, str], source: Path) -> str:
+    for key, value in values.items():
+        text = text.replace(key, value)
+    unresolved = [token for token in values if token in text]
+    if unresolved:
+        raise RuntimeError(f"Unresolved template values in {source}: {unresolved}")
+    return text
+
+
 def main() -> None:
     data = json.loads(SUMMARY.read_text(encoding="utf-8"))
-    html = TEMPLATE.read_text(encoding="utf-8")
-    sitemap = SITEMAP.read_text(encoding="utf-8")
-
     values = {
         "{{MEMVANTA_RSS_GIB}}": gib_from_kib(data["memvanta_peak_rss_kib"]),
         "{{LLAMA_RSS_GIB}}": gib_from_kib(data["llama_peak_rss_kib"]),
@@ -33,21 +39,27 @@ def main() -> None:
         "{{LASTMOD}}": date.today().isoformat(),
     }
 
-    for key, value in values.items():
-        html = html.replace(key, value)
-        sitemap = sitemap.replace(key, value)
-
-    unresolved_html = [token for token in values if token in html]
-    if unresolved_html:
-        raise RuntimeError(f"Unresolved HTML template values: {unresolved_html}")
-    if "{{LASTMOD}}" in sitemap:
-        raise RuntimeError("Unresolved sitemap LASTMOD value")
-
     shutil.rmtree(OUT, ignore_errors=True)
     OUT.mkdir()
-    (OUT / "index.html").write_text(html, encoding="utf-8")
+
+    templates = sorted(SITE.rglob("*.template.html"))
+    if not templates:
+        raise RuntimeError("No GitHub Pages templates found")
+
+    for template in templates:
+        relative = template.relative_to(SITE)
+        output_relative = relative.with_name(relative.name.replace(".template.html", ".html"))
+        output_path = OUT / output_relative
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        html = render(template.read_text(encoding="utf-8"), values, template)
+        output_path.write_text(html, encoding="utf-8")
+
+    sitemap = render(SITEMAP.read_text(encoding="utf-8"), values, SITEMAP)
     (OUT / "sitemap.xml").write_text(sitemap, encoding="utf-8")
-    shutil.copy2(ROOT / "site" / "robots.txt", OUT / "robots.txt")
+
+    for asset in ("robots.txt", "styles.css"):
+        shutil.copy2(SITE / asset, OUT / asset)
+
     (OUT / ".nojekyll").write_text("", encoding="utf-8")
 
 
