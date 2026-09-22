@@ -2,25 +2,13 @@
 
 **Run larger local LLMs with less RAM.**
 
-MemVanta is an experimental C++20 runtime for **low-memory CPU LLM inference** with quantized Llama-family **GGUF models**. It explores mmap-backed model access, quantized CPU kernels, and paged KV cache for memory-constrained local AI.
+MemVanta is an experimental **C++20 runtime for low-memory CPU LLM inference** with quantized Llama-family GGUF models. It explores mmap-backed model access, quantized CPU kernels, paged KV cache, and byte-bounded adaptive prefetching for memory-constrained local AI.
 
-## Quick Start
+> **Memory first.** MemVanta trades throughput for a smaller memory footprint. On the canonical repeated OpenLLaMA 7B v2 Q4_0 A/B test, MemVanta used **47.54% less peak RSS** than pinned `llama.cpp`; `llama.cpp` was substantially faster.
 
-Build and test on Linux or macOS:
+## Benchmark
 
-```bash
-git clone https://github.com/sauravsingla/MemVanta.git
-cd MemVanta
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build -j
-ctest --test-dir build --output-on-failure
-```
-
-To reproduce the published memory measurements against pinned `llama.cpp`, follow the **[reproduction guide](docs/EXTERNAL_REPRODUCTION.md)**.
-
-## Primary benchmark: MemVanta vs llama.cpp
-
-The canonical repeated peak-RSS comparison below is MemVanta's **primary public memory claim**. Throughput is reported beside memory so the trade-off is explicit.
+The repeated OpenLLaMA 7B v2 Q4_0 comparison is MemVanta's **primary public memory claim**. Throughput is shown beside memory so the trade-off remains explicit.
 
 <!-- BEGIN_CANONICAL_7B_BENCHMARK -->
 | Metric | MemVanta | pinned `llama.cpp` |
@@ -33,53 +21,52 @@ The canonical repeated peak-RSS comparison below is MemVanta's **primary public 
 Source of truth: [`results/openllama-7b-v2-ab/summary.json`](results/openllama-7b-v2-ab/summary.json). The README table is generated from that file; do not edit its numbers by hand.
 <!-- END_CANONICAL_7B_BENCHMARK -->
 
-### Secondary systems evidence: constrained-memory boundary
+[Raw A/B evidence](results/openllama-7b-v2-ab/) · [Methodology](docs/MEMORY_BENCHMARKING.md) · [External reproduction guide](docs/EXTERNAL_REPRODUCTION.md)
 
-A separate Linux cgroup-v2 `MemoryMax` experiment, with swap disabled and the same verified OpenLLaMA 7B v2 Q4_0 model, narrowed the execution-under-pressure boundary to 32 MiB resolution:
+### Constrained-memory evidence
 
-| Boundary metric | MemVanta | pinned `llama.cpp` |
-|---|---:|---:|
-| Lowest confirmed successful ceiling | **160 MiB** | 3648 MiB |
-| Confirmed OOM ceiling | **128 MiB** | 3616 MiB |
-| Confirmed-success ceiling difference | **3488 MiB lower** | baseline |
-| Confirmed-success ceiling reduction vs pinned `llama.cpp` | **95.61%** | baseline |
+A separate Linux cgroup-v2 experiment, with swap disabled and the same verified 7B model, found a lowest confirmed successful ceiling of **160 MiB for MemVanta** versus **3648 MiB for pinned `llama.cpp`** on the tested hosted runner.
 
-Each final success/OOM edge was repeated twice. This is a **cgroup execution-under-pressure boundary on the tested hosted runner**, not an exact physical-RAM minimum and not a replacement for the peak-RSS/throughput benchmark above. In particular, **160 MiB must not be quoted as the physical RAM required to hold or run a 7B model**; the primary memory result remains the repeated **3.80 GiB peak-RSS** measurement above.
+This is **execution-under-pressure evidence**, not a physical-RAM requirement. The 160 MiB value must not be quoted as the RAM required to hold or run a 7B model; the primary memory result is the repeated **3.80 GiB peak-RSS** measurement above.
 
-At each runtime's lowest confirmed successful ceiling, the two confirmation runs averaged approximately:
+[Constrained-memory results](results/openllama-7b-v2-ram-constrained/)
 
-| Pressure-workload throughput | MemVanta @ 160 MiB | pinned `llama.cpp` @ 3648 MiB |
-|---|---:|---:|
-| Prompt processing (pp128) | 6.17 tok/s | **19.21 tok/s** |
-| Token generation (tg32) | 1.39 tok/s | **6.10 tok/s** |
+## What MemVanta explores
 
-These pressure-run throughput values use the pp128/tg32 boundary workload and are not directly comparable to the canonical pp512/tg128 throughput table above.
+- **Low-memory GGUF inference** for memory-constrained CPUs
+- **mmap-backed model access** instead of persistent full-model copies
+- **Paged KV cache** with explicit memory bounds
+- **Q4/Q8 CPU kernels** with portable fallbacks and AVX2/FMA optimization
+- **Byte-bounded adaptive prefetching** driven by usefulness, memory pressure, and latency feedback
+- **Repeated same-runner A/B gates** for benchmark-affecting compiler and kernel changes
 
-[Raw A/B evidence](results/openllama-7b-v2-ab/) · [Separate memory-pressure test](results/openllama-7b-v2-ram-constrained/) · [Methodology](docs/MEMORY_BENCHMARKING.md)
+Performance work is accepted only when it clears the repository's correctness and memory guardrails. Failed optimization candidates are kept as negative results rather than promoted as wins.
 
-`llama.cpp` is substantially faster in these tests; MemVanta focuses on the **memory-efficiency side of CPU inference**.
+## Quick start
 
-## Low-memory CPU LLM inference
+Build and run the test suite on Linux or macOS:
 
-MemVanta focuses on:
+```bash
+git clone https://github.com/sauravsingla/MemVanta.git
+cd MemVanta
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j
+ctest --test-dir build --output-on-failure
+```
 
-- quantized **GGUF inference** on memory-constrained CPUs
-- mmap-backed model access and paged KV cache
-- Q4/Q8 and AVX2/FMA optimization while preserving memory efficiency
+For benchmark reproduction against pinned `llama.cpp`, use the [external reproduction guide](docs/EXTERNAL_REPRODUCTION.md).
 
-Current trained-model execution supports GGUF files with `general.architecture=llama`.
+## Supported scope
 
-The GGUF container/parser is intentionally architecture-neutral. CI also validates parsing a pinned `general.architecture=qwen2` GGUF with `memvanta_gguf_inspect`; this is **container compatibility evidence only**, not a claim that Qwen2 inference is implemented.
+Trained-model execution currently supports GGUF files with:
 
-## Adaptive prefetch and performance guardrails
+```text
+general.architecture=llama
+```
 
-MemVanta uses **byte-bounded adaptive weight prefetching** with usefulness, memory-pressure, and latency feedback. Look-ahead is constrained by an explicit hot-set budget, and real-model validation checks that prefetching preserves deterministic output while staying inside the configured memory bound.
+The GGUF parser itself is architecture-neutral. CI also validates a pinned `general.architecture=qwen2` GGUF with `memvanta_gguf_inspect`; that is **container/parser compatibility evidence only**, not a claim that Qwen2 inference is implemented.
 
-The adaptive decision logic is isolated from cache ownership and I/O so policy behavior can be unit-tested independently. Performance profiling separates **prefill, decode, FFN, QKV projection, attention output projection, and output-head costs**.
-
-Release builds can use interprocedural optimization where supported to attack hot Q4/Q8 projection overhead without introducing persistent model copies or an unbounded cache. CPU-kernel/compiler changes are evaluated with repeated same-runner OpenLLaMA 7B A/B tests so changes that regress throughput or memory are rejected before promotion. Experimental ideas that fail these gates are treated as negative results rather than promoted optimizations.
-
-## Correctness, reliability, and portability
+## Correctness and portability
 
 The validation stack includes:
 
@@ -88,19 +75,18 @@ The validation stack includes:
 - deterministic multi-thread model checks and pinned external-reference comparisons
 - concurrency and prefetch lifecycle stress testing
 - AddressSanitizer, UndefinedBehaviorSanitizer, ThreadSanitizer, and GGUF fuzz-smoke coverage
-- portable x86 runtime dispatch plus optimized AVX2/FMA paths where supported
-- ARM64 cross-build and QEMU correctness coverage compiled for ARMv8 SIMD/NEON-capable code generation
+- portable x86 runtime dispatch plus AVX2/FMA paths where supported
+- ARM64 cross-build and QEMU correctness coverage for ARMv8 SIMD/NEON-capable code generation
 - trained-model validation on pinned small and 7B-class Llama-family GGUF models
-- non-Llama Qwen2 GGUF container/parser validation with claims explicitly scoped away from execution support
 
-These guardrails are designed to keep memory-efficiency work from weakening numerical correctness, determinism, portability, or benchmark claim discipline.
+The goal is to improve memory efficiency without weakening numerical correctness, determinism, portability, or benchmark claim discipline.
+
+## Project status
+
+MemVanta is an **active research prototype** with trained-model evidence up to 7B. Results are scoped to the tested models, settings, and hosts. Independent third-party reproduction is still needed.
 
 ## Contributing
 
 Independent benchmark reproductions, CPU kernel optimizations, GGUF compatibility testing, profiling, and well-documented negative results are welcome.
 
 [Contributing](CONTRIBUTING.md) · [Architecture](docs/ARCHITECTURE.md) · [All evidence](results/) · [Citation](CITATION.cff) · [License](LICENSE)
-
----
-
-**Status:** Active research prototype with trained-model evidence up to 7B. Results are scoped to the tested models, settings, and hosts; independent third-party reproduction is still needed.
