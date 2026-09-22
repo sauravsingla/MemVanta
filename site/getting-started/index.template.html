@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Run a GGUF Model on CPU with MemVanta | Getting Started</title>
+  <meta name="description" content="Build MemVanta and run a supported Llama-family GGUF model on CPU with the memvanta_real inference CLI, including the main generation options and current model-scope limits.">
+  <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1">
+  <link rel="canonical" href="https://sauravsingla.github.io/MemVanta/getting-started/">
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+  <meta property="og:type" content="article">
+  <meta property="og:site_name" content="MemVanta">
+  <meta property="og:title" content="Run a GGUF Model on CPU with MemVanta">
+  <meta property="og:description" content="Clone, build, and run real GGUF text generation with MemVanta's C++20 CPU inference runtime.">
+  <meta property="og:url" content="https://sauravsingla.github.io/MemVanta/getting-started/">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Run a GGUF Model on CPU with MemVanta">
+  <meta name="twitter:description" content="A concise first-run guide for MemVanta's real GGUF inference CLI.">
+  <link rel="stylesheet" href="../styles.css">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {"@type":"ListItem","position":1,"name":"MemVanta","item":"https://sauravsingla.github.io/MemVanta/"},
+      {"@type":"ListItem","position":2,"name":"Getting Started","item":"https://sauravsingla.github.io/MemVanta/getting-started/"}
+    ]
+  }
+  </script>
+</head>
+<body>
+  <div class="wrap"><nav><a class="brand" href="../">MemVanta</a><a href="../getting-started/">Getting started</a><a href="../benchmark/">Benchmark</a><a href="../low-memory-llm-inference/">Low-memory inference</a><a href="../architecture/">Architecture</a><a href="../reproduce/">Reproduce</a></nav></div>
+  <header><div class="wrap">
+    <div class="eyebrow">First real inference</div>
+    <h1>Run a GGUF model on CPU with MemVanta</h1>
+    <p class="lead">This path builds the project and runs trained-model text generation through <code>memvanta_real</code>. Use a supported Llama-family GGUF model that you are licensed to use.</p>
+    <div class="actions"><a class="btn primary" href="https://github.com/sauravsingla/MemVanta">Clone on GitHub</a><a class="btn" href="../benchmark/">See measured results</a></div>
+  </div></header>
+  <main class="wrap">
+    <section>
+      <h2>1. Build MemVanta</h2>
+      <pre><code>git clone https://github.com/sauravsingla/MemVanta.git
+cd MemVanta
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j
+ctest --test-dir build --output-on-failure</code></pre>
+      <p>The default build produces the real-inference executable <code>build/memvanta_real</code> together with benchmark, inspection, tokenizer, and test targets.</p>
+    </section>
+    <section>
+      <h2>2. Run text generation</h2>
+      <pre><code>./build/memvanta_real \
+  --model /path/to/model.gguf \
+  --prompt "Hello from MemVanta" \
+  --n 64 \
+  --threads 4 \
+  --ctx 2048 \
+  --temperature 0</code></pre>
+      <p>Use <code>./build/memvanta_real --help</code> to print the current CLI syntax. A temperature of <code>0</code> selects deterministic greedy generation in the current CLI path.</p>
+    </section>
+    <section>
+      <h2>3. Know which executable you are using</h2>
+      <p><code>memvanta_real</code> is the trained-model GGUF text-generation CLI. The separate <code>memvanta run &lt;file&gt;</code> command exercises the mapped streaming/cache runtime and reports memory/streaming telemetry; it is not the text-generation command.</p>
+      <p>Keeping those two paths distinct avoids a common first-run mistake and makes benchmark tooling separate from model generation.</p>
+    </section>
+    <section>
+      <h2>Current model scope</h2>
+      <p>Trained-model execution currently supports GGUF files with <code>general.architecture=llama</code>. The parser also validates pinned Qwen2 GGUF files, but Qwen2 inference is not implemented. Parser compatibility is therefore broader than execution support.</p>
+      <p>MemVanta remains an active research / engineering prototype. It is designed around memory-constrained CPU inference and does not claim throughput leadership over mature general-purpose runtimes.</p>
+    </section>
+    <section>
+      <h2>Main generation options</h2>
+      <div class="table-wrap"><table aria-label="memvanta_real command options">
+        <thead><tr><th>Option</th><th>Purpose</th></tr></thead>
+        <tbody>
+          <tr><td><code>--model</code></td><td>Path to the GGUF model file.</td></tr>
+          <tr><td><code>--prompt</code></td><td>Prompt text. Defaults to <code>Hello</code>.</td></tr>
+          <tr><td><code>--n</code></td><td>Number of tokens to generate. Default: 64.</td></tr>
+          <tr><td><code>--threads</code></td><td>CPU worker count. Defaults to available hardware concurrency.</td></tr>
+          <tr><td><code>--ctx</code></td><td>Context size override.</td></tr>
+          <tr><td><code>--temperature</code></td><td>Sampling temperature. Default: 0.</td></tr>
+        </tbody>
+      </table></div>
+    </section>
+    <section>
+      <h2>Next steps</h2>
+      <p>Once generation works, use the benchmark and reproduction pages to understand MemVanta's measured memory/performance trade-off rather than extrapolating from a single local run.</p>
+      <div class="actions"><a class="btn primary" href="../benchmark/">7B benchmark</a><a class="btn" href="../reproduce/">Reproduction protocol</a><a class="btn" href="../architecture/">Architecture</a></div>
+    </section>
+  </main>
+  <footer><div class="wrap"><a href="../">MemVanta</a> · <a href="https://github.com/sauravsingla/MemVanta">GitHub</a> · <a href="https://doi.org/10.5281/zenodo.22886357">DOI</a><p>Getting-started guidance synchronized with the repository on {{LASTMOD}}.</p></div></footer>
+</body>
+</html>

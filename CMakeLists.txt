@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(memvanta_cpu VERSION 0.7.2 LANGUAGES CXX)
+project(memvanta_cpu VERSION 0.8.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

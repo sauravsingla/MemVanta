@@ -6,6 +6,7 @@ on:
     paths:
       - "site/**"
       - "scripts/build_pages.py"
+      - "scripts/check_pages.py"
       - "results/openllama-7b-v2-ab/summary.json"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
@@ -28,6 +29,9 @@ jobs:
 
       - name: Build static site from canonical benchmark
         run: python3 scripts/build_pages.py
+
+      - name: Validate site discovery and internal links
+        run: python3 scripts/check_pages.py _site
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5

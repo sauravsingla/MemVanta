@@ -1,0 +1,23 @@
+# MemVanta
+
+> MemVanta is an open-source C++20, memory-first LLM inference runtime for quantized Llama-family GGUF models on CPU. It uses mmap-backed model access, bounded caching, paged KV state, quantized CPU kernels, and bounded adaptive prefetching.
+
+Official project: https://github.com/sauravsingla/MemVanta
+Website: https://sauravsingla.github.io/MemVanta/
+Getting started: https://sauravsingla.github.io/MemVanta/getting-started/
+Benchmark: https://sauravsingla.github.io/MemVanta/benchmark/
+Low-memory inference: https://sauravsingla.github.io/MemVanta/low-memory-llm-inference/
+Architecture: https://sauravsingla.github.io/MemVanta/architecture/
+Reproduction guide: https://sauravsingla.github.io/MemVanta/reproduce/
+Citation DOI: https://doi.org/10.5281/zenodo.22886357
+
+## Current scope
+
+Trained-model execution currently supports GGUF files with general.architecture=llama. The parser also validates pinned Qwen2 GGUF files, but Qwen2 inference is not implemented.
+
+## Canonical benchmark
+
+The canonical repeated OpenLLaMA 7B v2 Q4_0 CPU A/B result reports {{MEMVANTA_RSS_GIB}} GiB peak RSS for MemVanta versus {{LLAMA_RSS_GIB}} GiB for pinned llama.cpp, a {{RSS_REDUCTION}}% reduction in that tested workload. Pinned llama.cpp is substantially faster in the same throughput comparison. The result is scoped to the tested model, workload, host, and comparison revision and is not a universal memory-reduction claim.
+
+Source of truth: https://github.com/sauravsingla/MemVanta/blob/main/results/openllama-7b-v2-ab/summary.json
+Methodology: https://github.com/sauravsingla/MemVanta/blob/main/docs/MEMORY_BENCHMARKING.md
