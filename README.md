@@ -55,4 +55,4 @@ CI covers correctness, sanitizers, deterministic model checks, x86 portability, 
 
 Active research prototype for local LLM and CPU inference with trained-model evidence up to 7B. Results apply to the tested models, settings, and hosts; independent reproduction is welcome.
 
-[Website](https://sauravsingla.github.io/MemVanta/) · [Architecture](docs/ARCHITECTURE.md) · [Results](results/) · [Citation](CITATION.cff) · [License](LICENSE)
+[Architecture](docs/ARCHITECTURE.md) · [Results](results/) · [Citation](CITATION.cff) · [License](LICENSE)
