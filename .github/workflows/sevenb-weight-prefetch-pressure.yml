@@ -3,9 +3,12 @@ name: Seven Billion Weight Prefetch Pressure
 on:
   workflow_dispatch:
   pull_request:
+    # Keep this expensive performance gate scoped to code that can directly
+    # change weight streaming/prefetch behavior. Build-system-only edits can
+    # still be checked explicitly with workflow_dispatch when they affect
+    # optimization flags or runtime behavior.
     paths:
       - '.github/workflows/sevenb-weight-prefetch-pressure.yml'
-      - 'CMakeLists.txt'
       - 'include/memvanta/runtime.hpp'
       - 'src/runtime.cpp'
       - 'src/prefetcher.cpp'
