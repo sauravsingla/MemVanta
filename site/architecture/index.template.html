@@ -7,15 +7,29 @@
   <meta name="description" content="Architecture of the MemVanta low-memory CPU LLM runtime: GGUF parsing, mmap-backed storage, bounded caching, paged KV cache, adaptive prefetching, and quantized kernels.">
   <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1">
   <link rel="canonical" href="https://sauravsingla.github.io/MemVanta/architecture/">
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml">
   <meta property="og:type" content="article">
+  <meta property="og:site_name" content="MemVanta">
   <meta property="og:title" content="MemVanta Architecture | Memory-First CPU LLM Inference">
   <meta property="og:description" content="How MemVanta separates mapped storage, memory policy, numerical kernels, and model execution.">
   <meta property="og:url" content="https://sauravsingla.github.io/MemVanta/architecture/">
   <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="MemVanta Architecture | Memory-First CPU LLM Inference">
+  <meta name="twitter:description" content="Mapped GGUF storage, bounded memory policy, quantized kernels, model execution, and validation layers.">
   <link rel="stylesheet" href="../styles.css">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {"@type":"ListItem","position":1,"name":"MemVanta","item":"https://sauravsingla.github.io/MemVanta/"},
+      {"@type":"ListItem","position":2,"name":"Architecture","item":"https://sauravsingla.github.io/MemVanta/architecture/"}
+    ]
+  }
+  </script>
 </head>
 <body>
-  <div class="wrap"><nav><a class="brand" href="../">MemVanta</a><a href="../benchmark/">Benchmark</a><a href="../low-memory-llm-inference/">Low-memory inference</a><a href="../architecture/">Architecture</a><a href="../reproduce/">Reproduce</a></nav></div>
+  <div class="wrap"><nav><a class="brand" href="../">MemVanta</a><a href="../getting-started/">Getting started</a><a href="../benchmark/">Benchmark</a><a href="../low-memory-llm-inference/">Low-memory inference</a><a href="../architecture/">Architecture</a><a href="../reproduce/">Reproduce</a></nav></div>
   <header><div class="wrap">
     <div class="eyebrow">System design</div>
     <h1>MemVanta architecture: memory-first CPU LLM inference</h1>
@@ -54,9 +68,9 @@
     </section>
     <section>
       <h2>See the design under measurement</h2>
-      <div class="actions"><a class="btn primary" href="../benchmark/">7B memory benchmark</a><a class="btn" href="../reproduce/">Reproduce results</a></div>
+      <div class="actions"><a class="btn primary" href="../getting-started/">Run a GGUF model</a><a class="btn" href="../benchmark/">7B memory benchmark</a><a class="btn" href="../reproduce/">Reproduce results</a></div>
     </section>
   </main>
-  <footer><div class="wrap"><a href="../">MemVanta</a> · <a href="https://github.com/sauravsingla/MemVanta">GitHub</a> · <a href="https://doi.org/10.5281/zenodo.22886357">DOI</a><p>Architecture overview synchronized with the repository on {{LASTMOD}}.</p></div></footer>
+  <footer><div class="wrap"><a href="../">MemVanta</a> · <a href="../getting-started/">Getting started</a> · <a href="https://github.com/sauravsingla/MemVanta">GitHub</a> · <a href="https://doi.org/10.5281/zenodo.22886357">DOI</a><p>Architecture overview synchronized with the repository on {{LASTMOD}}.</p></div></footer>
 </body>
 </html>
