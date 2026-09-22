@@ -4,7 +4,7 @@
 
 MemVanta is a memory-first local LLM runtime for running quantized Llama-family GGUF models on CPUs with limited RAM. It uses mmap-backed model access, paged KV cache, Q4/Q8 kernels, and bounded adaptive prefetching, with reproducible memory and throughput benchmarks against pinned `llama.cpp`.
 
-[Website](https://sauravsingla.github.io/MemVanta/) · [Benchmark evidence](results/openllama-7b-v2-ab/) · [Reproduce](docs/EXTERNAL_REPRODUCTION.md) · [Contributing](CONTRIBUTING.md)
+[Website](https://sauravsingla.github.io/MemVanta/) · [DOI](https://doi.org/10.5281/zenodo.22886357) · [Benchmark evidence](results/openllama-7b-v2-ab/) · [Reproduce](docs/EXTERNAL_REPRODUCTION.md) · [Contributing](CONTRIBUTING.md)
 
 ## 7B memory benchmark vs llama.cpp
 

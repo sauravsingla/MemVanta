@@ -3,6 +3,7 @@ title: MemVanta
 message: "If you use MemVanta or its benchmark methodology/results in research, please cite this repository."
 type: software
 version: 0.8.0
+doi: "10.5281/zenodo.22886357"
 authors:
   - family-names: Singla
     given-names: Saurav
