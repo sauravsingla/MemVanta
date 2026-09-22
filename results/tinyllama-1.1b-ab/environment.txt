@@ -1,6 +1,6 @@
 model=TinyLlama-1.1B-Chat-v1.0.Q4_0.gguf
 model_sha256=58d7f78ad80e6745d2148dc7391740c2de761da5791c853dec9a09b1f43a1ea9
-memvanta_commit=ee95fc0e6723985c98c1fadf8be53adcfea451de
+memvanta_commit=69a78dd1301d2c3fc05a147a06df79c7e8197cd7
 llama_cpp_ref=6503355df0eb4f65875012523263c302fe0088c1
 threads=4 prompt=512 gen=128 ctx=768 batch=32 kv=f16 reps=5 warmup=1
 Linux runnervmlun5p 6.17.0-1022-azure #22-Ubuntu SMP Mon Jul 27 17:24:03 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux

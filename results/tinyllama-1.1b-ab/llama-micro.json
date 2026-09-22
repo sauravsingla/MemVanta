@@ -35,13 +35,13 @@
     "n_prompt": 32,
     "n_gen": 0,
     "n_depth": 0,
-    "test_time": "2026-09-22T05:30:12Z",
-    "avg_ns": 354404970,
+    "test_time": "2026-09-22T06:18:46Z",
+    "avg_ns": 353647344,
     "stddev_ns": 0,
-    "avg_ts": 90.292187,
+    "avg_ts": 90.485622,
     "stddev_ts": 0.000000,
-    "samples_ns": [ 354404970 ],
-    "samples_ts": [ 90.2922 ]
+    "samples_ns": [ 353647344 ],
+    "samples_ts": [ 90.4856 ]
   },
   {
     "build_commit": "6503355",
@@ -79,12 +79,12 @@
     "n_prompt": 0,
     "n_gen": 16,
     "n_depth": 0,
-    "test_time": "2026-09-22T05:30:13Z",
-    "avg_ns": 320900289,
+    "test_time": "2026-09-22T06:18:46Z",
+    "avg_ns": 321654941,
     "stddev_ns": 0,
-    "avg_ts": 49.859724,
+    "avg_ts": 49.742746,
     "stddev_ts": 0.000000,
-    "samples_ns": [ 320900289 ],
-    "samples_ts": [ 49.8597 ]
+    "samples_ns": [ 321654941 ],
+    "samples_ts": [ 49.7427 ]
   }
 ]
