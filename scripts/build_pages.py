@@ -9,6 +9,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SUMMARY = ROOT / "results/openllama-7b-v2-ab/summary.json"
 TEMPLATE = ROOT / "site/index.template.html"
+SITEMAP = ROOT / "site/sitemap.xml"
 OUT = ROOT / "_site"
 
 
@@ -19,6 +20,7 @@ def gib_from_kib(value: float) -> str:
 def main() -> None:
     data = json.loads(SUMMARY.read_text(encoding="utf-8"))
     html = TEMPLATE.read_text(encoding="utf-8")
+    sitemap = SITEMAP.read_text(encoding="utf-8")
 
     values = {
         "{{MEMVANTA_RSS_GIB}}": gib_from_kib(data["memvanta_peak_rss_kib"]),
@@ -33,17 +35,19 @@ def main() -> None:
 
     for key, value in values.items():
         html = html.replace(key, value)
+        sitemap = sitemap.replace(key, value)
 
-    unresolved = [token for token in values if token in html]
-    if unresolved:
-        raise RuntimeError(f"Unresolved template values: {unresolved}")
+    unresolved_html = [token for token in values if token in html]
+    if unresolved_html:
+        raise RuntimeError(f"Unresolved HTML template values: {unresolved_html}")
+    if "{{LASTMOD}}" in sitemap:
+        raise RuntimeError("Unresolved sitemap LASTMOD value")
 
-    OUT.mkdir(exist_ok=True)
+    shutil.rmtree(OUT, ignore_errors=True)
+    OUT.mkdir()
     (OUT / "index.html").write_text(html, encoding="utf-8")
-
-    for filename in ("robots.txt", "sitemap.xml"):
-        shutil.copy2(ROOT / "site" / filename, OUT / filename)
-
+    (OUT / "sitemap.xml").write_text(sitemap, encoding="utf-8")
+    shutil.copy2(ROOT / "site" / "robots.txt", OUT / "robots.txt")
     (OUT / ".nojekyll").write_text("", encoding="utf-8")
 
 

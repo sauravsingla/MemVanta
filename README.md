@@ -4,6 +4,8 @@
 
 MemVanta is a memory-first local LLM runtime for running quantized Llama-family GGUF models on CPUs with limited RAM. It uses mmap-backed model access, paged KV cache, Q4/Q8 kernels, and bounded adaptive prefetching, with reproducible memory and throughput benchmarks against pinned `llama.cpp`.
 
+[Website](https://sauravsingla.github.io/MemVanta/) · [Benchmark evidence](results/openllama-7b-v2-ab/) · [Reproduce](docs/EXTERNAL_REPRODUCTION.md) · [Contributing](CONTRIBUTING.md)
+
 ## 7B memory benchmark vs llama.cpp
 
 <!-- BEGIN_CANONICAL_7B_BENCHMARK -->
@@ -19,7 +21,7 @@ Source of truth: [`results/openllama-7b-v2-ab/summary.json`](results/openllama-7
 
 MemVanta is **memory-first**; pinned `llama.cpp` is substantially faster in this test.
 
-[Benchmark evidence](results/openllama-7b-v2-ab/) · [Methodology](docs/MEMORY_BENCHMARKING.md) · [Reproduce](docs/EXTERNAL_REPRODUCTION.md)
+[Raw evidence](results/openllama-7b-v2-ab/) · [Methodology](docs/MEMORY_BENCHMARKING.md)
 
 A separate cgroup-v2 test also measured execution under tight memory limits. It is systems evidence, **not a physical-RAM requirement**. [Results](results/openllama-7b-v2-ram-constrained/)
 
@@ -53,4 +55,4 @@ CI covers correctness, sanitizers, deterministic model checks, x86 portability, 
 
 Active research prototype for local LLM and CPU inference with trained-model evidence up to 7B. Results apply to the tested models, settings, and hosts; independent reproduction is welcome.
 
-[Contributing](CONTRIBUTING.md) · [Architecture](docs/ARCHITECTURE.md) · [Results](results/) · [Citation](CITATION.cff) · [License](LICENSE)
+[Website](https://sauravsingla.github.io/MemVanta/) · [Architecture](docs/ARCHITECTURE.md) · [Results](results/) · [Citation](CITATION.cff) · [License](LICENSE)

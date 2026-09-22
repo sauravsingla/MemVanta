@@ -3,30 +3,42 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>MemVanta — Low-Memory C++ LLM Inference for GGUF on CPU</title>
-  <meta name="description" content="MemVanta is a memory-first C++20 LLM inference runtime for quantized GGUF models on CPU, with mmap-backed weights, paged KV cache, Q4/Q8 kernels, adaptive prefetching, and reproducible llama.cpp benchmarks.">
-  <meta name="keywords" content="MemVanta, low-memory LLM inference, C++ LLM inference, GGUF, CPU inference, local LLM, llama.cpp benchmark, quantized LLM, paged KV cache, mmap, Q4, Q8">
+  <title>MemVanta | Low-Memory CPU LLM Inference for GGUF</title>
+  <meta name="description" content="Open-source C++20 runtime for low-memory CPU LLM inference with quantized GGUF models, mmap-backed weights, paged KV cache, and reproducible llama.cpp benchmarks.">
+  <meta name="author" content="Saurav Singla">
   <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1">
   <link rel="canonical" href="https://sauravsingla.github.io/MemVanta/">
+  <link rel="sitemap" type="application/xml" href="https://sauravsingla.github.io/MemVanta/sitemap.xml">
   <meta property="og:type" content="website">
-  <meta property="og:title" content="MemVanta — Low-Memory C++ LLM Inference for GGUF on CPU">
-  <meta property="og:description" content="Memory-first local LLM inference on CPU with reproducible GGUF benchmarks against llama.cpp.">
+  <meta property="og:title" content="MemVanta | Low-Memory CPU LLM Inference for GGUF">
+  <meta property="og:description" content="Open-source C++20 runtime for memory-efficient local LLM inference on CPU with reproducible GGUF benchmarks against llama.cpp.">
   <meta property="og:url" content="https://sauravsingla.github.io/MemVanta/">
   <meta property="og:site_name" content="MemVanta">
+  <meta property="og:locale" content="en_US">
   <meta name="twitter:card" content="summary">
-  <meta name="twitter:title" content="MemVanta — Low-Memory C++ LLM Inference">
-  <meta name="twitter:description" content="Memory-first C++20 runtime for quantized GGUF models on CPU.">
+  <meta name="twitter:title" content="MemVanta | Low-Memory CPU LLM Inference for GGUF">
+  <meta name="twitter:description" content="C++20 GGUF inference on CPU with mmap-backed weights, paged KV cache, Q4/Q8 kernels, and reproducible llama.cpp benchmarks.">
   <meta name="theme-color" content="#111827">
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
     "@type": "SoftwareSourceCode",
     "name": "MemVanta",
-    "description": "Low-memory C++20 LLM inference runtime for quantized GGUF models on CPU.",
+    "description": "Open-source C++20 runtime for low-memory CPU LLM inference with quantized GGUF models.",
     "codeRepository": "https://github.com/sauravsingla/MemVanta",
     "url": "https://sauravsingla.github.io/MemVanta/",
+    "author": {
+      "@type": "Person",
+      "name": "Saurav Singla",
+      "url": "https://github.com/sauravsingla"
+    },
+    "datePublished": "2026-08-20",
+    "isAccessibleForFree": true,
     "programmingLanguage": "C++",
+    "runtimePlatform": "CPU",
+    "operatingSystem": "Linux, macOS",
     "license": "https://www.apache.org/licenses/LICENSE-2.0",
+    "citation": "https://github.com/sauravsingla/MemVanta/blob/main/CITATION.cff",
     "keywords": "low-memory LLM inference, GGUF, CPU inference, local LLM, quantization, llama.cpp benchmark, paged KV cache"
   }
   </script>
@@ -81,7 +93,7 @@
 
   <main class="wrap">
     <section>
-      <h2>7B memory benchmark vs llama.cpp</h2>
+      <h2>OpenLLaMA 7B memory benchmark vs llama.cpp</h2>
       <div class="grid">
         <div class="card"><div class="big">{{MEMVANTA_RSS_GIB}} GiB</div><div class="label">MemVanta peak RSS</div></div>
         <div class="card"><div class="big">{{LLAMA_RSS_GIB}} GiB</div><div class="label">pinned llama.cpp peak RSS</div></div>
@@ -100,7 +112,8 @@
     </section>
 
     <section>
-      <h2>Low-memory local LLM inference</h2>
+      <h2>Memory-efficient GGUF inference on CPU</h2>
+      <p>Built for local AI, edge systems, and constrained machines where RAM is a primary bottleneck. MemVanta focuses on memory-efficient GGUF inference rather than throughput leadership.</p>
       <ul class="features">
         <li>mmap-backed GGUF model access</li>
         <li>Paged KV cache with explicit bounds</li>
@@ -114,7 +127,7 @@
     </section>
 
     <section>
-      <h2>Build</h2>
+      <h2>Build MemVanta</h2>
       <pre><code>git clone https://github.com/sauravsingla/MemVanta.git
 cd MemVanta
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
@@ -123,7 +136,7 @@ ctest --test-dir build --output-on-failure</code></pre>
     </section>
 
     <section>
-      <h2>Current scope</h2>
+      <h2>Current model support</h2>
       <p>Trained-model execution currently supports GGUF models with <code>general.architecture=llama</code>. The GGUF parser also validates pinned Qwen2 files, but Qwen2 inference is not implemented.</p>
       <p class="note">MemVanta is an active research prototype with trained-model evidence up to 7B. Independent reproduction is welcome.</p>
     </section>

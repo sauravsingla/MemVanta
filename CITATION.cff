@@ -6,7 +6,7 @@ authors:
   - family-names: Singla
     given-names: Saurav
 repository-code: "https://github.com/sauravsingla/MemVanta"
-url: "https://github.com/sauravsingla/MemVanta"
+url: "https://sauravsingla.github.io/MemVanta/"
 license: Apache-2.0
 abstract: "Experimental C++20 runtime for memory-efficient CPU inference of quantized GGUF language models, with reproducible peak-RSS and constrained-memory benchmarking."
 keywords:
