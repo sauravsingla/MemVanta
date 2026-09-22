@@ -1,10 +1,10 @@
 # MemVanta
 
-**Low-memory C++ LLM inference runtime for GGUF models.**
+**Low-memory C++ LLM inference runtime for quantized GGUF models on CPU.**
 
-MemVanta runs quantized Llama-family LLMs on CPUs using mmap-backed weights, paged KV cache, Q4/Q8 kernels, and adaptive prefetching, with reproducible benchmarks against `llama.cpp`.
+MemVanta is a memory-first local LLM runtime for running quantized Llama-family GGUF models on CPUs with limited RAM. It uses mmap-backed model access, paged KV cache, Q4/Q8 kernels, and bounded adaptive prefetching, with reproducible memory and throughput benchmarks against pinned `llama.cpp`.
 
-## Benchmark
+## 7B memory benchmark vs llama.cpp
 
 <!-- BEGIN_CANONICAL_7B_BENCHMARK -->
 | Metric | MemVanta | pinned `llama.cpp` |
