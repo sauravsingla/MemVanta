@@ -7,15 +7,29 @@
   <meta name="description" content="Step-by-step evidence requirements for independently reproducing MemVanta's CPU GGUF peak-RSS and throughput benchmark against a pinned comparison runtime.">
   <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1">
   <link rel="canonical" href="https://sauravsingla.github.io/MemVanta/reproduce/">
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml">
   <meta property="og:type" content="article">
+  <meta property="og:site_name" content="MemVanta">
   <meta property="og:title" content="Reproduce the MemVanta GGUF Memory Benchmark">
   <meta property="og:description" content="Independent reproduction guidance for MemVanta peak-RSS, throughput, and constrained-memory results.">
   <meta property="og:url" content="https://sauravsingla.github.io/MemVanta/reproduce/">
   <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Reproduce the MemVanta GGUF Memory Benchmark">
+  <meta name="twitter:description" content="Controlled reproduction guidance for peak RSS, throughput, model hashes, runtime revisions, and raw evidence.">
   <link rel="stylesheet" href="../styles.css">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {"@type":"ListItem","position":1,"name":"MemVanta","item":"https://sauravsingla.github.io/MemVanta/"},
+      {"@type":"ListItem","position":2,"name":"Reproduce Benchmark","item":"https://sauravsingla.github.io/MemVanta/reproduce/"}
+    ]
+  }
+  </script>
 </head>
 <body>
-  <div class="wrap"><nav><a class="brand" href="../">MemVanta</a><a href="../benchmark/">Benchmark</a><a href="../low-memory-llm-inference/">Low-memory inference</a><a href="../architecture/">Architecture</a><a href="../reproduce/">Reproduce</a></nav></div>
+  <div class="wrap"><nav><a class="brand" href="../">MemVanta</a><a href="../getting-started/">Getting started</a><a href="../benchmark/">Benchmark</a><a href="../low-memory-llm-inference/">Low-memory inference</a><a href="../architecture/">Architecture</a><a href="../reproduce/">Reproduce</a></nav></div>
   <header><div class="wrap">
     <div class="eyebrow">Independent validation</div>
     <h1>Reproduce the MemVanta GGUF memory benchmark</h1>
@@ -23,6 +37,11 @@
     <div class="actions"><a class="btn primary" href="https://github.com/sauravsingla/MemVanta/blob/main/docs/EXTERNAL_REPRODUCTION.md">Full repository guide</a><a class="btn" href="https://github.com/sauravsingla/MemVanta/issues">Report a reproduction</a></div>
   </div></header>
   <main class="wrap">
+    <section>
+      <h2>Before benchmarking: verify real inference</h2>
+      <p>If you have not used MemVanta before, first build the project and run <code>memvanta_real</code> against a supported Llama-family GGUF model. This separates basic model-compatibility problems from benchmark-methodology problems.</p>
+      <div class="actions"><a class="btn primary" href="../getting-started/">Getting-started guide</a></div>
+    </section>
     <section>
       <h2>What to measure</h2>
       <ol class="checklist">
@@ -66,6 +85,6 @@
       <div class="actions"><a class="btn primary" href="../benchmark/">Benchmark details</a><a class="btn" href="https://github.com/sauravsingla/MemVanta/tree/main/results/openllama-7b-v2-ab">Raw evidence</a></div>
     </section>
   </main>
-  <footer><div class="wrap"><a href="../">MemVanta</a> · <a href="https://github.com/sauravsingla/MemVanta">GitHub</a> · <a href="https://doi.org/10.5281/zenodo.22886357">DOI</a><p>Reproduction guidance synchronized with the repository on {{LASTMOD}}.</p></div></footer>
+  <footer><div class="wrap"><a href="../">MemVanta</a> · <a href="../getting-started/">Getting started</a> · <a href="https://github.com/sauravsingla/MemVanta">GitHub</a> · <a href="https://doi.org/10.5281/zenodo.22886357">DOI</a><p>Reproduction guidance synchronized with the repository on {{LASTMOD}}.</p></div></footer>
 </body>
 </html>
