@@ -10,6 +10,9 @@ on:
       - ".github/scripts/check_social_preview.py"
       - "results/openllama-7b-v2-ab/summary.json"
       - ".github/workflows/pages.yml"
+  workflow_run:
+    workflows: ["Publish Benchmark Results"]
+    types: [completed]
   workflow_dispatch:
 
 permissions:
@@ -23,6 +26,7 @@ concurrency:
 
 jobs:
   build:
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
