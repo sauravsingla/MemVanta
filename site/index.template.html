@@ -9,6 +9,7 @@
   <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1">
   <link rel="canonical" href="https://sauravsingla.github.io/MemVanta/">
   <link rel="sitemap" type="application/xml" href="https://sauravsingla.github.io/MemVanta/sitemap.xml">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <meta property="og:type" content="website">
   <meta property="og:title" content="MemVanta — Low-Memory CPU LLM Inference for GGUF">
   <meta property="og:description" content="Open-source C++20 runtime for memory-efficient local LLM inference on CPU with reproducible GGUF benchmarks against llama.cpp.">
@@ -46,16 +47,16 @@
   </script>
 </head>
 <body>
-  <div class="wrap"><nav><a class="brand" href="./">MemVanta</a><a href="benchmark/">Benchmark</a><a href="low-memory-llm-inference/">Low-memory inference</a><a href="architecture/">Architecture</a><a href="reproduce/">Reproduce</a></nav></div>
+  <div class="wrap"><nav><a class="brand" href="./">MemVanta</a><a href="getting-started/">Getting started</a><a href="benchmark/">Benchmark</a><a href="low-memory-llm-inference/">Low-memory inference</a><a href="architecture/">Architecture</a><a href="reproduce/">Reproduce</a></nav></div>
   <header>
     <div class="wrap">
       <div class="eyebrow">Open-source · C++20 · CPU · GGUF</div>
       <h1>MemVanta — Low-Memory CPU LLM Inference for GGUF</h1>
       <p class="lead">A memory-first C++ LLM inference runtime for quantized GGUF models on CPUs with limited RAM. MemVanta uses mmap-backed model access, paged KV cache, Q4/Q8 kernels, and bounded adaptive prefetching.</p>
       <div class="actions">
-        <a class="btn primary" href="https://github.com/sauravsingla/MemVanta">View on GitHub</a>
+        <a class="btn primary" href="getting-started/">Run a GGUF model</a>
+        <a class="btn" href="https://github.com/sauravsingla/MemVanta">View on GitHub</a>
         <a class="btn" href="benchmark/">See 7B benchmark</a>
-        <a class="btn" href="reproduce/">Reproduce results</a>
       </div>
       <p class="proof"><strong>{{RSS_REDUCTION}}% lower peak RSS</strong> in the published OpenLLaMA 7B v2 Q4_0 same-model CPU A/B test: {{MEMVANTA_RSS_GIB}} GiB for MemVanta vs {{LLAMA_RSS_GIB}} GiB for pinned llama.cpp. llama.cpp is substantially faster in this test.</p>
     </div>
@@ -70,15 +71,31 @@
         <div class="card"><div class="big good">{{RSS_REDUCTION}}%</div><div class="label">peak-RSS reduction in this test</div></div>
       </div>
       <div style="height:18px"></div>
-      <table aria-label="OpenLLaMA 7B v2 Q4_0 benchmark">
+      <div class="table-wrap"><table aria-label="OpenLLaMA 7B v2 Q4_0 benchmark">
         <thead><tr><th>Metric</th><th>MemVanta</th><th>pinned llama.cpp</th></tr></thead>
         <tbody>
           <tr><td>OpenLLaMA 7B v2 Q4_0 peak RSS</td><td><strong>{{MEMVANTA_RSS_GIB}} GiB</strong></td><td>{{LLAMA_RSS_GIB}} GiB</td></tr>
           <tr><td>Prompt processing</td><td>{{MEMVANTA_PP}} tok/s</td><td><strong>{{LLAMA_PP}} tok/s</strong></td></tr>
           <tr><td>Token generation</td><td>{{MEMVANTA_TG}} tok/s</td><td><strong>{{LLAMA_TG}} tok/s</strong></td></tr>
         </tbody>
-      </table>
+      </table></div>
       <p class="note">Results are scoped to the tested model, settings, host, and pinned comparison runtime. <a href="benchmark/">Read the benchmark interpretation</a> · <a href="https://github.com/sauravsingla/MemVanta/tree/main/results/openllama-7b-v2-ab">Raw evidence</a></p>
+    </section>
+
+    <section>
+      <h2>Run your first GGUF model</h2>
+      <p>Build the project, then use <code>memvanta_real</code> for trained-model text generation with a supported Llama-family GGUF file.</p>
+      <pre><code>git clone https://github.com/sauravsingla/MemVanta.git
+cd MemVanta
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j
+
+./build/memvanta_real \
+  --model /path/to/model.gguf \
+  --prompt "Hello from MemVanta" \
+  --n 64 --threads 4 --ctx 2048 --temperature 0</code></pre>
+      <p class="note"><code>memvanta_real</code> is the text-generation CLI. <code>memvanta run &lt;file&gt;</code> is a separate mapped streaming/cache telemetry path.</p>
+      <div class="actions"><a class="btn primary" href="getting-started/">Getting-started guide</a></div>
     </section>
 
     <section>
@@ -98,15 +115,6 @@
     </section>
 
     <section>
-      <h2>Build MemVanta</h2>
-      <pre><code>git clone https://github.com/sauravsingla/MemVanta.git
-cd MemVanta
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build -j
-ctest --test-dir build --output-on-failure</code></pre>
-    </section>
-
-    <section>
       <h2>Current model support</h2>
       <p>Trained-model execution currently supports GGUF models with <code>general.architecture=llama</code>. The GGUF parser also validates pinned Qwen2 files, but Qwen2 inference is not implemented.</p>
       <p class="note">MemVanta is an active research prototype with trained-model evidence up to 7B. Independent reproduction is welcome.</p>
@@ -122,12 +130,13 @@ ctest --test-dir build --output-on-failure</code></pre>
   <footer>
     <div class="wrap">
       <a href="https://github.com/sauravsingla/MemVanta">Repository</a> ·
+      <a href="getting-started/">Getting started</a> ·
       <a href="benchmark/">Benchmark</a> ·
       <a href="architecture/">Architecture</a> ·
       <a href="reproduce/">Reproduce</a> ·
       <a href="https://doi.org/10.5281/zenodo.22886357">DOI</a> ·
       <a href="https://github.com/sauravsingla/MemVanta/blob/main/LICENSE">Apache-2.0</a>
-      <p>Benchmark page generated from the repository's canonical result on {{LASTMOD}}.</p>
+      <p>Project site generated from repository evidence on {{LASTMOD}}.</p>
     </div>
   </footer>
 </body>
