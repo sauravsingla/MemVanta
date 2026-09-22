@@ -40,7 +40,7 @@ jobs:
           echo "tag=${tag}" >> "${GITHUB_OUTPUT}"
 
       - name: Checkout release tag
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ steps.release.outputs.tag }}
           fetch-depth: 0
@@ -113,7 +113,7 @@ jobs:
           )
 
       - name: Upload workflow artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ${{ steps.release.outputs.tag }}-linux-x86_64
           path: |
