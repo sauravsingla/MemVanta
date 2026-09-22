@@ -1,14 +1,10 @@
 # MemVanta
 
-**Run larger local LLMs with less RAM.**
+**Low-memory CPU inference for GGUF LLMs.**
 
-MemVanta is an experimental **C++20 runtime for low-memory CPU LLM inference** with quantized Llama-family GGUF models. It explores mmap-backed model access, quantized CPU kernels, paged KV cache, and byte-bounded adaptive prefetching for memory-constrained local AI.
-
-> **Memory first.** MemVanta trades throughput for a smaller memory footprint. On the canonical repeated OpenLLaMA 7B v2 Q4_0 A/B test, MemVanta used **47.54% less peak RSS** than pinned `llama.cpp`; `llama.cpp` was substantially faster.
+MemVanta is an experimental C++20 runtime focused on running quantized Llama-family models with a smaller memory footprint.
 
 ## Benchmark
-
-The repeated OpenLLaMA 7B v2 Q4_0 comparison is MemVanta's **primary public memory claim**. Throughput is shown beside memory so the trade-off remains explicit.
 
 <!-- BEGIN_CANONICAL_7B_BENCHMARK -->
 | Metric | MemVanta | pinned `llama.cpp` |
@@ -21,30 +17,13 @@ The repeated OpenLLaMA 7B v2 Q4_0 comparison is MemVanta's **primary public memo
 Source of truth: [`results/openllama-7b-v2-ab/summary.json`](results/openllama-7b-v2-ab/summary.json). The README table is generated from that file; do not edit its numbers by hand.
 <!-- END_CANONICAL_7B_BENCHMARK -->
 
-[Raw A/B evidence](results/openllama-7b-v2-ab/) · [Methodology](docs/MEMORY_BENCHMARKING.md) · [External reproduction guide](docs/EXTERNAL_REPRODUCTION.md)
+MemVanta is **memory-first**; pinned `llama.cpp` is substantially faster in this test.
 
-### Constrained-memory evidence
+[Benchmark evidence](results/openllama-7b-v2-ab/) · [Methodology](docs/MEMORY_BENCHMARKING.md) · [Reproduce](docs/EXTERNAL_REPRODUCTION.md)
 
-A separate Linux cgroup-v2 experiment, with swap disabled and the same verified 7B model, found a lowest confirmed successful ceiling of **160 MiB for MemVanta** versus **3648 MiB for pinned `llama.cpp`** on the tested hosted runner.
+A separate cgroup-v2 test also measured execution under tight memory limits. It is systems evidence, **not a physical-RAM requirement**. [Results](results/openllama-7b-v2-ram-constrained/)
 
-This is **execution-under-pressure evidence**, not a physical-RAM requirement. The 160 MiB value must not be quoted as the RAM required to hold or run a 7B model; the primary memory result is the repeated **3.80 GiB peak-RSS** measurement above.
-
-[Constrained-memory results](results/openllama-7b-v2-ram-constrained/)
-
-## What MemVanta explores
-
-- **Low-memory GGUF inference** for memory-constrained CPUs
-- **mmap-backed model access** instead of persistent full-model copies
-- **Paged KV cache** with explicit memory bounds
-- **Q4/Q8 CPU kernels** with portable fallbacks and AVX2/FMA optimization
-- **Byte-bounded adaptive prefetching** driven by usefulness, memory pressure, and latency feedback
-- **Repeated same-runner A/B gates** for benchmark-affecting compiler and kernel changes
-
-Performance work is accepted only when it clears the repository's correctness and memory guardrails. Failed optimization candidates are kept as negative results rather than promoted as wins.
-
-## Quick start
-
-Build and run the test suite on Linux or macOS:
+## Build
 
 ```bash
 git clone https://github.com/sauravsingla/MemVanta.git
@@ -54,39 +33,24 @@ cmake --build build -j
 ctest --test-dir build --output-on-failure
 ```
 
-For benchmark reproduction against pinned `llama.cpp`, use the [external reproduction guide](docs/EXTERNAL_REPRODUCTION.md).
+## Core ideas
 
-## Supported scope
+- mmap-backed model access
+- paged KV cache
+- Q4/Q8 CPU kernels
+- byte-bounded adaptive prefetching
+- repeated A/B performance and memory gates
 
-Trained-model execution currently supports GGUF files with:
+## Scope
 
-```text
-general.architecture=llama
-```
+Trained-model execution currently supports GGUF models with `general.architecture=llama`.
 
-The GGUF parser itself is architecture-neutral. CI also validates a pinned `general.architecture=qwen2` GGUF with `memvanta_gguf_inspect`; that is **container/parser compatibility evidence only**, not a claim that Qwen2 inference is implemented.
+The GGUF parser also validates pinned Qwen2 files, but **Qwen2 inference is not implemented**.
 
-## Correctness and portability
+CI covers correctness, sanitizers, deterministic model checks, x86 portability, AVX2/FMA paths, and ARM64 cross-build/QEMU validation.
 
-The validation stack includes:
+## Status
 
-- exhaustive FP16 conversion coverage, including subnormals, rounding boundaries, NaN, and infinity handling
-- explicit GGUF parser, string, array, allocation, workspace, KV-page, and offset bounds
-- deterministic multi-thread model checks and pinned external-reference comparisons
-- concurrency and prefetch lifecycle stress testing
-- AddressSanitizer, UndefinedBehaviorSanitizer, ThreadSanitizer, and GGUF fuzz-smoke coverage
-- portable x86 runtime dispatch plus AVX2/FMA paths where supported
-- ARM64 cross-build and QEMU correctness coverage for ARMv8 SIMD/NEON-capable code generation
-- trained-model validation on pinned small and 7B-class Llama-family GGUF models
+Active research prototype with trained-model evidence up to 7B. Results apply to the tested models, settings, and hosts; independent reproduction is welcome.
 
-The goal is to improve memory efficiency without weakening numerical correctness, determinism, portability, or benchmark claim discipline.
-
-## Project status
-
-MemVanta is an **active research prototype** with trained-model evidence up to 7B. Results are scoped to the tested models, settings, and hosts. Independent third-party reproduction is still needed.
-
-## Contributing
-
-Independent benchmark reproductions, CPU kernel optimizations, GGUF compatibility testing, profiling, and well-documented negative results are welcome.
-
-[Contributing](CONTRIBUTING.md) · [Architecture](docs/ARCHITECTURE.md) · [All evidence](results/) · [Citation](CITATION.cff) · [License](LICENSE)
+[Contributing](CONTRIBUTING.md) · [Architecture](docs/ARCHITECTURE.md) · [Results](results/) · [Citation](CITATION.cff) · [License](LICENSE)
