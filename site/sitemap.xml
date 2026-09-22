@@ -6,4 +6,28 @@
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
+  <url>
+    <loc>https://sauravsingla.github.io/MemVanta/benchmark/</loc>
+    <lastmod>{{LASTMOD}}</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://sauravsingla.github.io/MemVanta/low-memory-llm-inference/</loc>
+    <lastmod>{{LASTMOD}}</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://sauravsingla.github.io/MemVanta/architecture/</loc>
+    <lastmod>{{LASTMOD}}</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://sauravsingla.github.io/MemVanta/reproduce/</loc>
+    <lastmod>{{LASTMOD}}</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
 </urlset>

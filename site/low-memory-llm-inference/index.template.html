@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Low-Memory LLM Inference on CPU with GGUF | MemVanta</title>
+  <meta name="description" content="How MemVanta approaches low-memory local LLM inference on CPU using mmap-backed GGUF access, paged KV cache, quantized kernels, and bounded prefetching.">
+  <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1">
+  <link rel="canonical" href="https://sauravsingla.github.io/MemVanta/low-memory-llm-inference/">
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="Low-Memory LLM Inference on CPU with GGUF | MemVanta">
+  <meta property="og:description" content="A practical explanation of MemVanta's memory-first CPU inference design for quantized GGUF models.">
+  <meta property="og:url" content="https://sauravsingla.github.io/MemVanta/low-memory-llm-inference/">
+  <meta name="twitter:card" content="summary">
+  <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+  <div class="wrap"><nav><a class="brand" href="../">MemVanta</a><a href="../benchmark/">Benchmark</a><a href="../low-memory-llm-inference/">Low-memory inference</a><a href="../architecture/">Architecture</a><a href="../reproduce/">Reproduce</a></nav></div>
+  <header><div class="wrap">
+    <div class="eyebrow">Memory-first local AI</div>
+    <h1>Low-memory LLM inference on CPU with GGUF</h1>
+    <p class="lead">MemVanta is an experimental C++20 runtime for situations where resident memory is a primary constraint. It trades throughput for a design centered on mapped model access, bounded caches, paged KV storage, quantized CPU execution, and controlled prefetching.</p>
+    <div class="actions"><a class="btn primary" href="https://github.com/sauravsingla/MemVanta">View repository</a><a class="btn" href="../benchmark/">See 7B benchmark</a></div>
+  </div></header>
+  <main class="wrap">
+    <section>
+      <h2>Why memory becomes the bottleneck</h2>
+      <p>Local LLM inference must hold or access model weights, temporary activations, runtime buffers, and the KV cache while generation proceeds. On CPU-only or edge systems, memory pressure can become the practical limit before raw compute does. A runtime can therefore be useful even when it is not the fastest implementation, provided it makes the memory/performance trade-off explicit.</p>
+      <p>MemVanta targets that specific trade-off. Its public benchmark methodology treats peak resident set size as the primary metric and publishes throughput beside it rather than hiding the performance cost.</p>
+    </section>
+    <section>
+      <h2>How MemVanta reduces memory pressure</h2>
+      <ul class="features">
+        <li><strong>mmap-backed model access:</strong> model data is mapped rather than unconditionally copied into a separate full-model buffer.</li>
+        <li><strong>Bounded tensor slices and caches:</strong> storage interfaces are designed around explicit limits rather than silent full residency.</li>
+        <li><strong>Paged KV cache:</strong> attention state is managed with explicit bounds alongside the supported Llama execution graph.</li>
+        <li><strong>Quantized CPU kernels:</strong> compact Q4/Q8 execution paths reduce weight-storage and bandwidth pressure for supported tensors.</li>
+        <li><strong>Bounded adaptive prefetching:</strong> look-ahead can change with observed behavior without silently increasing the memory budget.</li>
+        <li><strong>Runtime CPU paths:</strong> optimized AVX2/FMA paths are paired with portability validation instead of assuming one host ISA.</li>
+      </ul>
+    </section>
+    <section>
+      <h2>When MemVanta is worth evaluating</h2>
+      <p>MemVanta is most relevant when you are experimenting with quantized GGUF models on CPU and memory usage matters more than maximum token throughput—for example, constrained developer machines, edge systems, or systems research into memory-aware inference.</p>
+      <p>It is not positioned as a drop-in replacement for mature general-purpose runtimes. Current trained-model execution supports GGUF files whose <code>general.architecture=llama</code>. Parser validation is broader than execution support, so parser compatibility should not be interpreted as model-family inference support.</p>
+    </section>
+    <section>
+      <h2>Evidence, not a universal RAM claim</h2>
+      <p>On the published OpenLLaMA 7B v2 Q4_0 same-model CPU comparison, MemVanta measured {{MEMVANTA_RSS_GIB}} GiB peak RSS versus {{LLAMA_RSS_GIB}} GiB for pinned llama.cpp, a {{RSS_REDUCTION}}% reduction in that test. The comparison runtime remained substantially faster in prompt processing and token generation.</p>
+      <p>Those numbers describe one controlled workload and host. The project deliberately avoids converting a lowest successful cgroup memory ceiling into a universal statement such as “a 7B model needs X GiB of RAM.”</p>
+    </section>
+    <section>
+      <h2>Explore the implementation</h2>
+      <div class="actions"><a class="btn primary" href="../architecture/">Architecture</a><a class="btn" href="../reproduce/">Reproduce the benchmark</a></div>
+    </section>
+  </main>
+  <footer><div class="wrap"><a href="../">MemVanta</a> · <a href="https://github.com/sauravsingla/MemVanta">GitHub</a> · <a href="https://doi.org/10.5281/zenodo.22886357">DOI</a><p>Updated from repository evidence on {{LASTMOD}}.</p></div></footer>
+</body>
+</html>

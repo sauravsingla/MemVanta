@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Reproduce the MemVanta GGUF Memory Benchmark</title>
+  <meta name="description" content="Step-by-step evidence requirements for independently reproducing MemVanta's CPU GGUF peak-RSS and throughput benchmark against a pinned comparison runtime.">
+  <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1">
+  <link rel="canonical" href="https://sauravsingla.github.io/MemVanta/reproduce/">
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="Reproduce the MemVanta GGUF Memory Benchmark">
+  <meta property="og:description" content="Independent reproduction guidance for MemVanta peak-RSS, throughput, and constrained-memory results.">
+  <meta property="og:url" content="https://sauravsingla.github.io/MemVanta/reproduce/">
+  <meta name="twitter:card" content="summary">
+  <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+  <div class="wrap"><nav><a class="brand" href="../">MemVanta</a><a href="../benchmark/">Benchmark</a><a href="../low-memory-llm-inference/">Low-memory inference</a><a href="../architecture/">Architecture</a><a href="../reproduce/">Reproduce</a></nav></div>
+  <header><div class="wrap">
+    <div class="eyebrow">Independent validation</div>
+    <h1>Reproduce the MemVanta GGUF memory benchmark</h1>
+    <p class="lead">A useful reproduction keeps the model artifact and workload matched, publishes every measured run, and makes enough environment information available for another person to understand or challenge the result.</p>
+    <div class="actions"><a class="btn primary" href="https://github.com/sauravsingla/MemVanta/blob/main/docs/EXTERNAL_REPRODUCTION.md">Full repository guide</a><a class="btn" href="https://github.com/sauravsingla/MemVanta/issues">Report a reproduction</a></div>
+  </div></header>
+  <main class="wrap">
+    <section>
+      <h2>What to measure</h2>
+      <ol class="checklist">
+        <li>Peak resident set size across repeated measured runs.</li>
+        <li>Prompt-processing throughput.</li>
+        <li>Token-generation throughput.</li>
+        <li>Where practical on Linux, success or failure under enforced cgroup-v2 memory ceilings with swap disabled.</li>
+      </ol>
+      <p>The goal is not to find only the most favorable run. Keep warm-up runs separate, retain every measured run, and preserve failed or OOM-killed attempts in constrained-memory sweeps.</p>
+    </section>
+    <section>
+      <h2>Keep the comparison controlled</h2>
+      <p>Use the identical GGUF file for MemVanta and the comparison runtime. Record the model filename, byte size, and SHA-256 digest. Pin the exact comparison-runtime commit and keep CPU-only execution, thread count, prompt length, generated-token count, context size, batch size, and KV-cache precision aligned whenever both runtimes support the same setting.</p>
+      <p>For peak-RSS comparisons, the project protocol calls for at least one warm-up and five measured runs.</p>
+    </section>
+    <section>
+      <h2>Evidence to publish</h2>
+      <ul class="features">
+        <li>MemVanta commit SHA</li>
+        <li>Comparison-runtime commit SHA</li>
+        <li>Model filename and SHA-256</li>
+        <li>CPU model and core counts</li>
+        <li>Operating system and kernel</li>
+        <li>Total RAM and swap state</li>
+        <li>Compiler and build type</li>
+        <li>Complete command lines</li>
+        <li>Context, batch, and token counts</li>
+        <li>Raw outputs for every run</li>
+        <li>Machine-readable CSV or JSON summary</li>
+        <li>cgroup configuration when used</li>
+      </ul>
+    </section>
+    <section>
+      <h2>How to report disagreement</h2>
+      <p>A reproduction is valuable whether it confirms, narrows, or contradicts the current result. If you observe a materially different memory or throughput profile, publish it with the same evidence rather than filtering it out. Methodology corrections are welcome.</p>
+      <p>For constrained-memory testing, report the actual tested ceilings and outcomes. Do not convert the lowest successful tested ceiling into an exact minimum physical-RAM requirement.</p>
+    </section>
+    <section>
+      <h2>Reference result</h2>
+      <p>The current canonical OpenLLaMA 7B v2 Q4_0 comparison reports {{MEMVANTA_RSS_GIB}} GiB peak RSS for MemVanta and {{LLAMA_RSS_GIB}} GiB for pinned llama.cpp, with llama.cpp substantially faster in throughput. Use the raw repository evidence as the reference rather than copying numbers from screenshots or third-party summaries.</p>
+      <div class="actions"><a class="btn primary" href="../benchmark/">Benchmark details</a><a class="btn" href="https://github.com/sauravsingla/MemVanta/tree/main/results/openllama-7b-v2-ab">Raw evidence</a></div>
+    </section>
+  </main>
+  <footer><div class="wrap"><a href="../">MemVanta</a> · <a href="https://github.com/sauravsingla/MemVanta">GitHub</a> · <a href="https://doi.org/10.5281/zenodo.22886357">DOI</a><p>Reproduction guidance synchronized with the repository on {{LASTMOD}}.</p></div></footer>
+</body>
+</html>

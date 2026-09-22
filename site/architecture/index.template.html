@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>MemVanta Architecture | mmap, Paged KV Cache and Quantized CPU Kernels</title>
+  <meta name="description" content="Architecture of the MemVanta low-memory CPU LLM runtime: GGUF parsing, mmap-backed storage, bounded caching, paged KV cache, adaptive prefetching, and quantized kernels.">
+  <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1">
+  <link rel="canonical" href="https://sauravsingla.github.io/MemVanta/architecture/">
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="MemVanta Architecture | Memory-First CPU LLM Inference">
+  <meta property="og:description" content="How MemVanta separates mapped storage, memory policy, numerical kernels, and model execution.">
+  <meta property="og:url" content="https://sauravsingla.github.io/MemVanta/architecture/">
+  <meta name="twitter:card" content="summary">
+  <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+  <div class="wrap"><nav><a class="brand" href="../">MemVanta</a><a href="../benchmark/">Benchmark</a><a href="../low-memory-llm-inference/">Low-memory inference</a><a href="../architecture/">Architecture</a><a href="../reproduce/">Reproduce</a></nav></div>
+  <header><div class="wrap">
+    <div class="eyebrow">System design</div>
+    <h1>MemVanta architecture: memory-first CPU LLM inference</h1>
+    <p class="lead">The runtime is organized so throughput optimizations do not silently turn into full-model residency or weaken correctness evidence. Storage, memory policy, numerical kernels, and trained-model execution are kept as separate concerns.</p>
+    <div class="actions"><a class="btn primary" href="https://github.com/sauravsingla/MemVanta/blob/main/docs/ARCHITECTURE.md">Architecture source</a><a class="btn" href="https://github.com/sauravsingla/MemVanta/tree/main/src">Browse source</a></div>
+  </div></header>
+  <main class="wrap">
+    <section>
+      <h2>1. GGUF container and mapped storage</h2>
+      <p>The GGUF layer validates container structure, metadata limits, tensor ranges, and quantized byte sizes. Model access is backed by memory mapping, while the tensor-store layer exposes bounded slices rather than requiring an unconditional full-model copy.</p>
+      <p>The parser is intentionally more architecture-neutral than the trained-model execution path. That distinction matters: being able to validate a GGUF file does not imply that MemVanta can execute that model family.</p>
+    </section>
+    <section>
+      <h2>2. Explicit memory policy</h2>
+      <p>Bounded caching, asynchronous prefetching, adaptive look-ahead policy, and runtime telemetry are separated so each layer has a clear responsibility. The adaptive controller receives completed observation windows and changes prefetch depth without owning storage itself.</p>
+      <p>This separation makes the policy easier to test deterministically and helps prevent benchmark-specific behavior from leaking into the storage layer.</p>
+    </section>
+    <section>
+      <h2>3. Quantized numerical kernels</h2>
+      <p>MemVanta contains compact quantization primitives and trained-model tensor kernels, including optimized CPU paths. Reusable worker-pool parallelism is separated from the model graph so CPU execution can be improved without redefining memory ownership.</p>
+      <p>Optimized release paths are accepted only when deterministic correctness remains green. Performance work is evaluated with memory and throughput together.</p>
+    </section>
+    <section>
+      <h2>4. Trained-model execution and KV state</h2>
+      <p>The current trained-model graph is Llama-family focused. Paged KV cache and tokenizer logic live alongside that graph today, while future architecture expansion is intended to move model-specific behavior behind smaller interfaces rather than growing a single monolithic execution path.</p>
+    </section>
+    <section>
+      <h2>Validation layers</h2>
+      <ol class="checklist">
+        <li><strong>Correctness:</strong> Release/Debug builds, sanitizer lanes, parser limits, FP16 coverage, concurrency stress, and fuzz smoke.</li>
+        <li><strong>ISA portability:</strong> native x86, portable x86 dispatch, macOS, and ARM64 cross/QEMU validation.</li>
+        <li><strong>Container validation:</strong> non-Llama GGUF parsing is tested without turning that into an execution-support claim.</li>
+        <li><strong>Model correctness:</strong> deterministic Llama-family checks and pinned external-reference/tokenizer comparisons.</li>
+        <li><strong>Performance evidence:</strong> repeated same-machine, same-workload A/B runs with peak RSS and throughput published together.</li>
+      </ol>
+    </section>
+    <section>
+      <h2>See the design under measurement</h2>
+      <div class="actions"><a class="btn primary" href="../benchmark/">7B memory benchmark</a><a class="btn" href="../reproduce/">Reproduce results</a></div>
+    </section>
+  </main>
+  <footer><div class="wrap"><a href="../">MemVanta</a> · <a href="https://github.com/sauravsingla/MemVanta">GitHub</a> · <a href="https://doi.org/10.5281/zenodo.22886357">DOI</a><p>Architecture overview synchronized with the repository on {{LASTMOD}}.</p></div></footer>
+</body>
+</html>
