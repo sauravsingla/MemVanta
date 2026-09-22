@@ -1,18 +1,18 @@
 	Command being timed: "./llama.cpp/build/bin/llama-bench -m stories15M-q4_0.gguf -p 64 -n 64 -t 4 -r 5 -b 32 -ub 32 -ctk f16 -ctv f16 -ngl 0 -o json"
-	User time (seconds): 0.98
-	System time (seconds): 0.02
-	Percent of CPU this job got: 344%
-	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:00.29
+	User time (seconds): 0.87
+	System time (seconds): 0.03
+	Percent of CPU this job got: 342%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:00.26
 	Average shared text size (kbytes): 0
 	Average unshared data size (kbytes): 0
 	Average stack size (kbytes): 0
 	Average total size (kbytes): 0
-	Maximum resident set size (kbytes): 43392
+	Maximum resident set size (kbytes): 54516
 	Average resident set size (kbytes): 0
 	Major (requiring I/O) page faults: 0
-	Minor (reclaiming a frame) page faults: 4748
-	Voluntary context switches: 10
-	Involuntary context switches: 107
+	Minor (reclaiming a frame) page faults: 4846
+	Voluntary context switches: 12
+	Involuntary context switches: 157
 	Swaps: 0
 	File system inputs: 0
 	File system outputs: 8
