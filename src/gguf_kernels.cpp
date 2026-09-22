@@ -246,13 +246,25 @@ Q8ActBatch quantize_activations_q8(const float*x,std::size_t batch,std::size_t c
 }
 
 inline int dot_q4_q8_block(const GgufBlockQ4_0&w,const std::int8_t*aq){
-    alignas(16)std::int8_t lo[16],hi[16];
 #if defined(__AVX2__)
-    const __m128i packed=_mm_loadu_si128(reinterpret_cast<const __m128i*>(w.qs));const __m128i mask=_mm_set1_epi8(0x0f),bias=_mm_set1_epi8(8);_mm_store_si128(reinterpret_cast<__m128i*>(lo),_mm_sub_epi8(_mm_and_si128(packed,mask),bias));_mm_store_si128(reinterpret_cast<__m128i*>(hi),_mm_sub_epi8(_mm_and_si128(_mm_srli_epi16(packed,4),mask),bias));
+    const __m128i packed=_mm_loadu_si128(reinterpret_cast<const __m128i*>(w.qs));
+    const __m128i mask=_mm_set1_epi8(0x0f),bias=_mm_set1_epi8(8);
+    const __m128i lo8=_mm_sub_epi8(_mm_and_si128(packed,mask),bias);
+    const __m128i hi8=_mm_sub_epi8(_mm_and_si128(_mm_srli_epi16(packed,4),mask),bias);
+    const __m256i lo16=_mm256_cvtepi8_epi16(lo8);
+    const __m256i hi16=_mm256_cvtepi8_epi16(hi8);
+    const __m256i a0=_mm256_cvtepi8_epi16(_mm_loadu_si128(reinterpret_cast<const __m128i*>(aq)));
+    const __m256i a1=_mm256_cvtepi8_epi16(_mm_loadu_si128(reinterpret_cast<const __m128i*>(aq+16)));
+    const __m256i p0=_mm256_madd_epi16(lo16,a0);
+    const __m256i p1=_mm256_madd_epi16(hi16,a1);
+    const __m256i p=_mm256_add_epi32(p0,p1);
+    __m128i v=_mm_add_epi32(_mm256_castsi256_si128(p),_mm256_extracti128_si256(p,1));
+    v=_mm_hadd_epi32(v,v);v=_mm_hadd_epi32(v,v);return _mm_cvtsi128_si32(v);
 #else
+    alignas(16)std::int8_t lo[16],hi[16];
     for(int i=0;i<16;++i){lo[i]=std::int8_t((w.qs[i]&15)-8);hi[i]=std::int8_t((w.qs[i]>>4)-8);}
-#endif
     return dot_i8_16(lo,aq)+dot_i8_16(hi,aq+16);
+#endif
 }
 inline float dot_q4_q8(const GgufBlockQ4_0*w,const std::int8_t*aq,const float*ad,std::size_t nb){float sum=0;for(std::size_t bi=0;bi<nb;++bi)sum+=kernel_fp16_to_fp32(w[bi].d)*ad[bi]*float(dot_q4_q8_block(w[bi],aq+bi*32));return sum;}
 
