@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>MemVanta vs llama.cpp | 7B GGUF Memory Benchmark</title>
+  <meta name="description" content="Reproducible OpenLLaMA 7B v2 Q4_0 CPU benchmark comparing MemVanta and pinned llama.cpp for peak RSS, prompt processing, and token generation throughput.">
+  <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1">
+  <link rel="canonical" href="https://sauravsingla.github.io/MemVanta/benchmark/">
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="MemVanta vs llama.cpp | 7B GGUF Memory Benchmark">
+  <meta property="og:description" content="Same-model CPU A/B evidence for peak RSS and throughput on OpenLLaMA 7B v2 Q4_0.">
+  <meta property="og:url" content="https://sauravsingla.github.io/MemVanta/benchmark/">
+  <meta name="twitter:card" content="summary">
+  <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+  <div class="wrap"><nav><a class="brand" href="../">MemVanta</a><a href="../benchmark/">Benchmark</a><a href="../low-memory-llm-inference/">Low-memory inference</a><a href="../architecture/">Architecture</a><a href="../reproduce/">Reproduce</a></nav></div>
+  <header><div class="wrap">
+    <div class="eyebrow">Same-model CPU A/B benchmark</div>
+    <h1>MemVanta vs llama.cpp: 7B GGUF memory benchmark</h1>
+    <p class="lead">A reproducible comparison of peak resident memory and throughput using the same OpenLLaMA 7B v2 Q4_0 GGUF workload. MemVanta is optimized for lower memory pressure, not throughput leadership.</p>
+    <div class="actions"><a class="btn primary" href="https://github.com/sauravsingla/MemVanta/tree/main/results/openllama-7b-v2-ab">Raw evidence</a><a class="btn" href="https://github.com/sauravsingla/MemVanta/blob/main/docs/MEMORY_BENCHMARKING.md">Methodology</a></div>
+  </div></header>
+  <main class="wrap">
+    <section>
+      <h2>Published result</h2>
+      <div class="grid">
+        <div class="card"><div class="big">{{MEMVANTA_RSS_GIB}} GiB</div><div class="label">MemVanta peak RSS</div></div>
+        <div class="card"><div class="big">{{LLAMA_RSS_GIB}} GiB</div><div class="label">pinned llama.cpp peak RSS</div></div>
+        <div class="card"><div class="big good">{{RSS_REDUCTION}}%</div><div class="label">lower peak RSS in this test</div></div>
+      </div>
+      <div style="height:18px"></div>
+      <table aria-label="OpenLLaMA 7B v2 Q4_0 benchmark">
+        <thead><tr><th>Metric</th><th>MemVanta</th><th>pinned llama.cpp</th></tr></thead>
+        <tbody>
+          <tr><td>Peak RSS</td><td><strong>{{MEMVANTA_RSS_GIB}} GiB</strong></td><td>{{LLAMA_RSS_GIB}} GiB</td></tr>
+          <tr><td>Prompt processing</td><td>{{MEMVANTA_PP}} tok/s</td><td><strong>{{LLAMA_PP}} tok/s</strong></td></tr>
+          <tr><td>Token generation</td><td>{{MEMVANTA_TG}} tok/s</td><td><strong>{{LLAMA_TG}} tok/s</strong></td></tr>
+        </tbody>
+      </table>
+      <p class="note">The memory result is scoped to the tested model, settings, host, and pinned comparison runtime. llama.cpp is substantially faster in this benchmark.</p>
+    </section>
+    <section>
+      <h2>What this benchmark is designed to answer</h2>
+      <p>The benchmark asks a narrow systems question: can the same quantized GGUF workload be executed with lower resident-memory usage while keeping the workload matched across runtimes? MemVanta and the comparison runtime use the identical model artifact, CPU-only execution, matched workload settings, repeated measured runs after warm-up, and a pinned comparison-runtime revision.</p>
+      <p>Peak RSS is the headline metric because the project is memory-first. Prompt-processing and token-generation throughput are published beside it so the cost of the lower-memory design remains visible.</p>
+    </section>
+    <section>
+      <h2>How to interpret the 47.54% figure</h2>
+      <p>The reported reduction is a peak-RSS comparison for this published OpenLLaMA 7B v2 Q4_0 experiment. It is not a universal claim that every model, machine, context size, or quantization will use 47.54% less memory.</p>
+      <p>MemVanta also publishes constrained-memory cgroup experiments, but those are secondary systems evidence. A lowest successful tested memory ceiling is not the same as a minimum physical-RAM requirement.</p>
+    </section>
+    <section>
+      <h2>Reproduce or challenge the result</h2>
+      <p>Independent reproduction is encouraged. Useful reports include both runtime commits, the exact model hash, hardware and operating-system details, complete commands, raw outputs, and all measured runs rather than only the best result.</p>
+      <div class="actions"><a class="btn primary" href="../reproduce/">Reproduction guide</a><a class="btn" href="https://github.com/sauravsingla/MemVanta/issues">Report a result</a></div>
+    </section>
+  </main>
+  <footer><div class="wrap"><a href="../">MemVanta</a> · <a href="https://github.com/sauravsingla/MemVanta">GitHub</a> · <a href="https://doi.org/10.5281/zenodo.22886357">DOI</a><p>Benchmark page generated from the repository's canonical result on {{LASTMOD}}.</p></div></footer>
+</body>
+</html>
