@@ -9,6 +9,8 @@ option(MEMVANTA_NATIVE "Enable -march=native for Release builds" ON)
 option(MEMVANTA_BUILD_FUZZER "Build the Clang/libFuzzer GGUF parser target" OFF)
 option(MEMVANTA_ENABLE_IPO "Enable Release interprocedural optimization when supported" ON)
 
+include(GNUInstallDirs)
+
 # Keep the performance candidate compiler-driven and RSS-neutral: IPO/LTO can
 # inline hot projection call boundaries without adding a persistent weight cache
 # or changing the runtime memory model. Existing 7B same-runner A/B workflows
@@ -170,6 +172,17 @@ add_dependencies(memvanta_tests
   memvanta_prefetch_policy_tests
   memvanta_isa_compile_tests
   memvanta_tokenizer_tests)
+
+# Keep release/install surfaces intentionally narrow: only end-user binaries and
+# the project metadata required to understand, license, and cite the runtime are
+# installed. Benchmarks and test executables remain source-tree tools.
+install(TARGETS
+  memvanta
+  memvanta_real
+  memvanta_tokenize
+  memvanta_gguf_inspect
+  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+install(FILES README.md LICENSE CITATION.cff DESTINATION ${CMAKE_INSTALL_DOCDIR})
 
 if(MEMVANTA_BUILD_FUZZER)
   if(NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
