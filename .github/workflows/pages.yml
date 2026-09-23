@@ -9,6 +9,7 @@ on:
       - "scripts/check_pages.py"
       - ".github/scripts/check_social_preview.py"
       - "results/openllama-7b-v2-ab/summary.json"
+      - "google6f58f6dc503549cc.html"
       - ".github/workflows/pages.yml"
   workflow_run:
     workflows: ["Publish Benchmark Results"]
@@ -34,6 +35,9 @@ jobs:
 
       - name: Build static site from canonical benchmark
         run: python3 scripts/build_pages.py
+
+      - name: Add Google Search Console verification
+        run: cp google6f58f6dc503549cc.html _site/google6f58f6dc503549cc.html
 
       - name: Validate site discovery and internal links
         run: python3 scripts/check_pages.py _site
