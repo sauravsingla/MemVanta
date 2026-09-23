@@ -2,6 +2,16 @@
 
 Thanks for contributing to MemVanta.
 
+## New contributor? Start here
+
+These starter issues are deliberately small and useful to the project:
+
+- [#53 — Add a benchmark system-information collector for reproduction reports](https://github.com/sauravsingla/MemVanta/issues/53)
+- [#54 — Add a one-command local smoke script for new contributors](https://github.com/sauravsingla/MemVanta/issues/54)
+- [#55 — Add a supported-platform and validation matrix for contributors](https://github.com/sauravsingla/MemVanta/issues/55)
+
+Comment on the issue if you want to coordinate before starting. For concrete systems questions that do not yet belong in an issue, use [GitHub Discussions](https://github.com/sauravsingla/MemVanta/discussions) — useful topics include benchmark reproduction, CPU/compiler behavior, memory measurements, model compatibility and hardware results. Security reports should still follow `SECURITY.md`.
+
 ## Development setup
 
 ```bash
@@ -31,6 +41,8 @@ For performance-related PRs, please report:
 - prefill throughput, decode throughput, and peak RSS where applicable
 
 Raw benchmark output is preferred over screenshots.
+
+Independent benchmark reproductions — including results that narrow or contradict existing measurements — are welcome when the full environment and raw evidence are included.
 
 ## Coding style
 
