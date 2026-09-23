@@ -4,7 +4,7 @@
 
 MemVanta is a memory-first local LLM runtime for running quantized Llama-family GGUF models on CPUs with limited RAM. It uses mmap-backed model access, paged KV cache, Q4/Q8 kernels, and bounded adaptive prefetching, with reproducible memory and throughput benchmarks against pinned `llama.cpp`.
 
-[Website](https://sauravsingla.github.io/MemVanta/) · [Getting started](https://sauravsingla.github.io/MemVanta/getting-started/) · [Latest release](https://github.com/sauravsingla/MemVanta/releases/tag/v0.8.1) · [7B benchmark](https://sauravsingla.github.io/MemVanta/benchmark/) · [DOI](https://doi.org/10.5281/zenodo.22886357) · [Reproduce](https://sauravsingla.github.io/MemVanta/reproduce/) · [Contributing](CONTRIBUTING.md)
+[Website](https://sauravsingla.github.io/MemVanta/) · [Getting started](https://sauravsingla.github.io/MemVanta/getting-started/) · [Latest release](https://github.com/sauravsingla/MemVanta/releases/tag/v0.8.1) · [7B benchmark](https://sauravsingla.github.io/MemVanta/benchmark/) · [DOI](https://doi.org/10.5281/zenodo.22886357) · [Reproduce](https://sauravsingla.github.io/MemVanta/reproduce/) · [Contributing](CONTRIBUTING.md) · [Discussions](https://github.com/sauravsingla/MemVanta/discussions)
 
 ## Why MemVanta?
 
@@ -131,6 +131,14 @@ Published benchmark methodology requires the identical GGUF artifact for both ru
 Independent results that confirm, narrow, or contradict the current measurements are useful. Reproduction reports should include model hashes, runtime commits, machine metadata, commands, and raw outputs.
 
 [Reproduction guide](https://sauravsingla.github.io/MemVanta/reproduce/) · [Memory benchmarking protocol](docs/MEMORY_BENCHMARKING.md)
+
+## Contributing and external reproductions
+
+Outside systems contributors are welcome. Good first contributions include tooling that improves reproducibility, local build/smoke workflows, platform-validation documentation, and narrowly scoped runtime fixes with deterministic tests. Start with [`CONTRIBUTING.md`](CONTRIBUTING.md) or the open [`good first issue`](https://github.com/sauravsingla/MemVanta/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) tasks.
+
+If you reproduce MemVanta on different CPUs, compilers, RAM limits or model files, please share the full environment and raw outputs even when the result differs from the current measurements. Use [GitHub Discussions](https://github.com/sauravsingla/MemVanta/discussions) for benchmark reproduction, hardware results, model compatibility and systems-design questions.
+
+The first stable release is intentionally evidence-gated rather than date-gated; see [release-readiness issue #56](https://github.com/sauravsingla/MemVanta/issues/56).
 
 ## Project links
 
