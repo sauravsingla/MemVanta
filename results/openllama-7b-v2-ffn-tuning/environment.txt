@@ -1,7 +1,7 @@
-commit=5acfc1516a542291e93537ac4312f51e3a699144
+commit=29107c70ca80d21578b6bfcb974cdab4d881ae49
 model_sha256=892f6e2e840ed98bb7bc1d74da67ae0cca52b2d90b0316d0a7e66a37a5a60760
 threads=4 prompt=128 gen=16 ctx=256 kv=f16
-Linux runnervmlun5p 6.17.0-1022-azure #22-Ubuntu SMP Mon Jul 27 17:24:03 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux
+Linux runnervmtr4k5 6.17.0-1022-azure #22-Ubuntu SMP Mon Jul 27 17:24:03 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux
 Architecture:                            x86_64
 CPU op-mode(s):                          32-bit, 64-bit
 Address sizes:                           48 bits physical, 48 bits virtual
@@ -47,5 +47,5 @@ Vulnerability Tsa:                       Vulnerable: No microcode
 Vulnerability Tsx async abort:           Not affected
 Vulnerability Vmscape:                   Not affected
                total        used        free      shared  buff/cache   available
-Mem:            15Gi       998Mi       8.4Gi        46Mi       6.7Gi        14Gi
+Mem:            15Gi       994Mi       8.4Gi        47Mi       6.7Gi        14Gi
 Swap:          3.0Gi          0B       3.0Gi
