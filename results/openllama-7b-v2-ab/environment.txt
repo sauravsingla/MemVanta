@@ -6,7 +6,7 @@ model_bytes=3825818912
   "magic": "GGUF",
   "gguf_version": 3
 }
-memvanta_commit=29107c70ca80d21578b6bfcb974cdab4d881ae49
+memvanta_commit=b94116260fd7a3f971abee27759fe7f5c8369001
 llama_cpp_ref=6503355df0eb4f65875012523263c302fe0088c1
 threads=4 prompt=512 gen=128 ctx=768 batch=32 kv=f16 reps=5 warmup=1
 Linux runnervmlun5p 6.17.0-1022-azure #22-Ubuntu SMP Mon Jul 27 17:24:03 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux
@@ -24,7 +24,7 @@ Thread(s) per core:                      2
 Core(s) per socket:                      2
 Socket(s):                               1
 Stepping:                                1
-BogoMIPS:                                4890.85
+BogoMIPS:                                4890.84
 Flags:                                   fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ht syscall nx mmxext fxsr_opt pdpe1gb rdtscp lm constant_tsc rep_good nopl tsc_reliable nonstop_tsc cpuid extd_apicid aperfmperf tsc_known_freq pni pclmulqdq ssse3 fma cx16 pcid sse4_1 sse4_2 movbe popcnt aes xsave avx f16c rdrand hypervisor lahf_lm cmp_legacy svm cr8_legacy abm sse4a misalignsse 3dnowprefetch osvw topoext vmmcall fsgsbase bmi1 avx2 smep bmi2 erms invpcid rdseed adx smap clflushopt clwb sha_ni xsaveopt xsavec xgetbv1 xsaves user_shstk clzero xsaveerptr rdpru arat npt nrip_save tsc_scale vmcb_clean flushbyasid decodeassists pausefilter pfthreshold v_vmsave_vmload umip vaes vpclmulqdq rdpid fsrm
 Virtualization:                          AMD-V
 Hypervisor vendor:                       Microsoft
@@ -55,5 +55,5 @@ Vulnerability Tsa:                       Vulnerable: No microcode
 Vulnerability Tsx async abort:           Not affected
 Vulnerability Vmscape:                   Not affected
                total        used        free      shared  buff/cache   available
-Mem:            15Gi       1.0Gi       7.9Gi        51Mi       7.1Gi        14Gi
+Mem:            15Gi       1.0Gi       7.9Gi        52Mi       7.1Gi        14Gi
 Swap:          3.0Gi          0B       3.0Gi
