@@ -1,0 +1,57 @@
+name: Temporary fix prefetch budget race
+
+on:
+  push:
+    branches:
+      - fix/runtime-prefetch-accounting-format
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/runtime-prefetch-accounting-format
+      - name: Make actual pending bytes the budget source of truth
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('src/runtime.cpp')
+          s = p.read_text()
+          old = '''    std::unordered_map<std::uint32_t, std::uint64_t> late_pending;\n    std::uint64_t inflight_bytes = 0;\n    std::uint64_t late_pending_bytes = 0;\n    std::uint64_t window_peak_inflight = 0;\n'''
+          new = '''    std::unordered_map<std::uint32_t, std::uint64_t> late_pending;\n    std::uint64_t inflight_bytes = 0;\n    std::uint64_t window_peak_inflight = 0;\n'''
+          if old not in s: raise SystemExit('declaration block not found')
+          s = s.replace(old, new, 1)
+
+          start = s.index('    const auto reserved_bytes = [&] {')
+          end = s.index('\n\n    for (std::uint32_t p = 0;', start)
+          s = s[:start] + s[end+2:]
+
+          s = s.replace('''                    late_pending_bytes -= it->second;\n                    it = late_pending.erase(it);\n''', '''                    it = late_pending.erase(it);\n''', 1)
+
+          s = s.replace('''                        if (inserted) {\n                            late_pending_bytes += bytes;\n                        }\n''', '''                        (void)inserted;\n''', 1)
+
+          s = s.replace('''                requested.erase(it);\n                record_reserved_peak();\n            }\n\n            for (std::uint32_t d = 1; d <= depth; ++d) {\n''', '''                requested.erase(it);\n            }\n\n            std::uint64_t budget_reserved_bytes =\n                cfg_.copy_cache ? prefetcher_.pending_bytes() : inflight_bytes;\n            window_peak_inflight = std::max(window_peak_inflight, budget_reserved_bytes);\n            pf.max_inflight_bytes = std::max(pf.max_inflight_bytes, budget_reserved_bytes);\n\n            for (std::uint32_t d = 1; d <= depth; ++d) {\n''', 1)
+
+          s = s.replace('''                const auto bytes = store_.slice(id).bytes;\n                ++pf.eligible;\n                const auto reserved = reserved_bytes();\n                if (inflight_limit != unlimited &&\n                    (bytes > inflight_limit || reserved > inflight_limit - bytes)) {\n''', '''                const auto bytes = store_.slice(id).bytes;\n                ++pf.eligible;\n                if (inflight_limit != unlimited &&\n                    (bytes > inflight_limit ||\n                     budget_reserved_bytes > inflight_limit - bytes)) {\n''', 1)
+
+          s = s.replace('''                if (cfg_.copy_cache) {\n                    prefetcher_.request(id);\n                } else {\n                    store_.prefetch(id);\n                }\n                record_reserved_peak();\n''', '''                if (cfg_.copy_cache) {\n                    prefetcher_.request(id);\n                } else {\n                    store_.prefetch(id);\n                }\n                if (bytes > std::numeric_limits<std::uint64_t>::max() - budget_reserved_bytes) {\n                    budget_reserved_bytes = std::numeric_limits<std::uint64_t>::max();\n                } else {\n                    budget_reserved_bytes += bytes;\n                }\n                window_peak_inflight = std::max(window_peak_inflight, budget_reserved_bytes);\n                pf.max_inflight_bytes = std::max(pf.max_inflight_bytes, budget_reserved_bytes);\n''', 1)
+
+          s = s.replace('''                if (inserted) {\n                    late_pending_bytes += bytes;\n                }\n''', '''                (void)inserted;\n''', 1)
+          s = s.replace('''        record_reserved_peak();\n        requested.clear();\n''', '''        requested.clear();\n''', 1)
+          p.write_text(s)
+          PY
+          clang-format -i src/runtime.cpp
+          git diff --check
+      - name: Commit correction
+        run: |
+          if git diff --quiet; then exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/runtime.cpp
+          git commit -m "Use actual pending bytes for prefetch budget"
+          git push
