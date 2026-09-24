@@ -1,5 +1,5 @@
 | model | size | params | backend | threads | test | t/s |
 |---|---:|---:|---|---:|---|---:|
-| models | 606.53 MiB | 1100.05 M | MemVanta CPU | 4 | pp128 | 47.96 ± 0.00 |
-| models | 606.53 MiB | 1100.05 M | MemVanta CPU | 4 | tg32 | 7.88 ± 0.00 |
-load=10.06 ms peak_rss=601.14 MiB kv_alloc=5.50 MiB batch=32 kv=f16
+| models | 606.53 MiB | 1100.05 M | MemVanta CPU | 4 | pp128 | 38.40 ± 0.00 |
+| models | 606.53 MiB | 1100.05 M | MemVanta CPU | 4 | tg32 | 6.76 ± 0.00 |
+load=11.65 ms peak_rss=601.02 MiB kv_alloc=5.50 MiB batch=32 kv=f16
