@@ -4,7 +4,7 @@
 
 MemVanta is a memory-first local LLM runtime for running quantized Llama-family GGUF models on CPUs with limited RAM. It uses mmap-backed model access, paged KV cache, Q4/Q8 kernels, and bounded adaptive prefetching, with reproducible memory and throughput benchmarks against pinned `llama.cpp`.
 
-[Website](https://sauravsingla.github.io/MemVanta/) · [Getting started](https://sauravsingla.github.io/MemVanta/getting-started/) · [Latest release](https://github.com/sauravsingla/MemVanta/releases/tag/v0.8.1) · [7B benchmark](https://sauravsingla.github.io/MemVanta/benchmark/) · [DOI](https://doi.org/10.5281/zenodo.22886357) · [Reproduce](https://sauravsingla.github.io/MemVanta/reproduce/) · [Contributing](CONTRIBUTING.md) · [Discussions](https://github.com/sauravsingla/MemVanta/discussions)
+[Website](https://sauravsingla.github.io/MemVanta/) · [Getting started](https://sauravsingla.github.io/MemVanta/getting-started/) · [Latest release](https://github.com/sauravsingla/MemVanta/releases/tag/v0.8.2) · [7B benchmark](https://sauravsingla.github.io/MemVanta/benchmark/) · [DOI](https://doi.org/10.5281/zenodo.22886357) · [Reproduce](https://sauravsingla.github.io/MemVanta/reproduce/) · [Contributing](CONTRIBUTING.md) · [Discussions](https://github.com/sauravsingla/MemVanta/discussions)
 
 ## Why MemVanta?
 
@@ -35,14 +35,14 @@ A separate cgroup-v2 experiment also measured execution under tight memory limit
 
 ## Download prebuilt release (Linux x86-64)
 
-The `v0.8.1` pre-release includes a portable Linux x86-64 build (`MEMVANTA_NATIVE=OFF`) plus a SHA-256 checksum. Download, verify, and extract it with:
+The `v0.8.2` pre-release includes a portable Linux x86-64 build (`MEMVANTA_NATIVE=OFF`) plus a SHA-256 checksum. Download, verify, and extract it with:
 
 ```bash
-curl -fLO https://github.com/sauravsingla/MemVanta/releases/download/v0.8.1/memvanta-v0.8.1-linux-x86_64.tar.gz
-curl -fLO https://github.com/sauravsingla/MemVanta/releases/download/v0.8.1/memvanta-v0.8.1-linux-x86_64.sha256
-sha256sum -c memvanta-v0.8.1-linux-x86_64.sha256
-tar -xzf memvanta-v0.8.1-linux-x86_64.tar.gz
-cd memvanta-v0.8.1-linux-x86_64
+curl -fLO https://github.com/sauravsingla/MemVanta/releases/download/v0.8.2/memvanta-v0.8.2-linux-x86_64.tar.gz
+curl -fLO https://github.com/sauravsingla/MemVanta/releases/download/v0.8.2/memvanta-v0.8.2-linux-x86_64.sha256
+sha256sum -c memvanta-v0.8.2-linux-x86_64.sha256
+tar -xzf memvanta-v0.8.2-linux-x86_64.tar.gz
+cd memvanta-v0.8.2-linux-x86_64
 ./bin/memvanta_real --help
 ```
 
@@ -58,7 +58,7 @@ Then run trained-model text generation with a supported Llama-family GGUF model 
   --temperature 0
 ```
 
-[Download MemVanta v0.8.1](https://github.com/sauravsingla/MemVanta/releases/tag/v0.8.1)
+[Download MemVanta v0.8.2](https://github.com/sauravsingla/MemVanta/releases/tag/v0.8.2)
 
 ## Build from source and run a GGUF model
 
@@ -144,7 +144,7 @@ The first stable release is intentionally evidence-gated rather than date-gated;
 
 - [Project website](https://sauravsingla.github.io/MemVanta/)
 - [Getting started](https://sauravsingla.github.io/MemVanta/getting-started/)
-- [Latest release: v0.8.1](https://github.com/sauravsingla/MemVanta/releases/tag/v0.8.1)
+- [Latest release: v0.8.2](https://github.com/sauravsingla/MemVanta/releases/tag/v0.8.2)
 - [7B benchmark](https://sauravsingla.github.io/MemVanta/benchmark/)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Results](results/)
