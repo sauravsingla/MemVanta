@@ -1,10 +1,10 @@
 {
   "benchmark": "OpenLLaMA 7B v2 Q4_0 single-run feasibility",
-  "memvanta_pp_tps": 2.8893,
-  "llama_pp_tps": 12.831075,
-  "memvanta_tg_tps": 1.80906,
-  "llama_tg_tps": 8.037051,
-  "memvanta_peak_rss_kib": 3982232,
-  "llama_peak_rss_kib": 7590604,
-  "memvanta_rss_reduction_pct": 47.537350123916355
+  "memvanta_pp_tps": 2.90364,
+  "llama_pp_tps": 12.861078,
+  "memvanta_tg_tps": 1.80706,
+  "llama_tg_tps": 8.077162,
+  "memvanta_peak_rss_kib": 3982068,
+  "llama_peak_rss_kib": 7588764,
+  "memvanta_rss_reduction_pct": 47.52679092405562
 }
