@@ -1,0 +1,74 @@
+[build-system]
+requires = ["scikit-build-core>=1.0"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "memvanta"
+dynamic = ["version"]
+description = "Low-memory C++20 LLM inference runtime for quantized GGUF models on CPU"
+readme = "README.md"
+requires-python = ">=3.9"
+license = "Apache-2.0"
+authors = [
+  { name = "Saurav Singla" }
+]
+keywords = [
+  "llm",
+  "gguf",
+  "cpu-inference",
+  "local-llm",
+  "low-memory",
+  "quantization",
+  "kv-cache",
+  "edge-ai",
+  "llama",
+  "inference"
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Science/Research",
+  "Operating System :: POSIX :: Linux",
+  "Programming Language :: C++",
+  "Programming Language :: Python :: 3",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence"
+]
+
+[project.urls]
+Homepage = "https://sauravsingla.github.io/MemVanta/"
+Repository = "https://github.com/sauravsingla/MemVanta"
+Issues = "https://github.com/sauravsingla/MemVanta/issues"
+Documentation = "https://sauravsingla.github.io/MemVanta/"
+Changelog = "https://github.com/sauravsingla/MemVanta/releases"
+
+[project.scripts]
+memvanta = "memvanta.cli:main"
+memvanta-real = "memvanta.cli:real"
+memvanta-tokenize = "memvanta.cli:tokenize"
+memvanta-gguf-inspect = "memvanta.cli:gguf_inspect"
+
+[[tool.dynamic-metadata]]
+provider = "scikit_build_core.metadata.regex"
+field = "version"
+input = "CMakeLists.txt"
+regex = '''project\(memvanta_cpu VERSION (?P<value>[0-9]+\.[0-9]+\.[0-9]+) LANGUAGES CXX\)'''
+
+[tool.scikit-build]
+minimum-version = "build-system.requires"
+cmake.build-type = "Release"
+wheel.py-api = "py3"
+wheel.install-dir = "memvanta"
+wheel.reproducible = true
+
+[tool.scikit-build.cmake.define]
+MEMVANTA_NATIVE = "OFF"
+MEMVANTA_BUILD_FUZZER = "OFF"
+
+[tool.cibuildwheel]
+build = ["cp311-manylinux_x86_64"]
+build-frontend = "build"
+test-command = "memvanta --help && memvanta-real --help && memvanta-tokenize --help && memvanta-gguf-inspect --help"
+
+[tool.cibuildwheel.linux]
+manylinux-x86_64-image = "manylinux_2_28"
