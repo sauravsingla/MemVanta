@@ -1,5 +1,5 @@
 | model | size | params | backend | threads | test | t/s |
 |---|---:|---:|---|---:|---|---:|
-| llama | 17.50 MiB | 24.41 M | MemVanta CPU | 4 | pp64 | 2430.06 ± 286.84 |
-| llama | 17.50 MiB | 24.41 M | MemVanta CPU | 4 | tg64 | 697.54 ± 246.25 |
-load=8.26 ms peak_rss=29.76 MiB kv_alloc=0.84 MiB batch=32 kv=f16
+| llama | 17.50 MiB | 24.41 M | MemVanta CPU | 4 | pp64 | 1823.88 ± 168.46 |
+| llama | 17.50 MiB | 24.41 M | MemVanta CPU | 4 | tg64 | 611.75 ± 214.24 |
+load=10.11 ms peak_rss=29.67 MiB kv_alloc=0.84 MiB batch=32 kv=f16
