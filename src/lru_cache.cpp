@@ -1,5 +1,6 @@
 #include "memvanta/lru_cache.hpp"
 
+#include <algorithm>
 #include <cstring>
 #include <limits>
 #include <stdexcept>
