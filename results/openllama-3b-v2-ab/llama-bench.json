@@ -2,7 +2,7 @@
   {
     "build_commit": "6503355",
     "build_number": 1,
-    "cpu_info": "AMD EPYC 9V74 80-Core Processor",
+    "cpu_info": "Intel(R) Xeon(R) 6973P-C",
     "gpu_info": "",
     "backends": "CPU",
     "model_filename": "openllama-3b-v2-q4_0.gguf",
@@ -35,18 +35,18 @@
     "n_prompt": 512,
     "n_gen": 0,
     "n_depth": 0,
-    "test_time": "2026-09-24T08:14:31Z",
-    "avg_ns": 22457449004,
-    "stddev_ns": 5549544,
-    "avg_ts": 22.798672,
-    "stddev_ts": 0.005633,
-    "samples_ns": [ 22465706657, 22455464034, 22453145890, 22452552415, 22460376024 ],
-    "samples_ts": [ 22.7903, 22.8007, 22.803, 22.8036, 22.7957 ]
+    "test_time": "2026-09-24T08:22:16Z",
+    "avg_ns": 11176309601,
+    "stddev_ns": 297175293,
+    "avg_ts": 45.836968,
+    "stddev_ts": 1.212116,
+    "samples_ns": [ 10846333418, 11035677422, 11443888235, 11535100604, 11020548328 ],
+    "samples_ts": [ 47.2049, 46.395, 44.74, 44.3863, 46.4587 ]
   },
   {
     "build_commit": "6503355",
     "build_number": 1,
-    "cpu_info": "AMD EPYC 9V74 80-Core Processor",
+    "cpu_info": "Intel(R) Xeon(R) 6973P-C",
     "gpu_info": "",
     "backends": "CPU",
     "model_filename": "openllama-3b-v2-q4_0.gguf",
@@ -79,12 +79,12 @@
     "n_prompt": 0,
     "n_gen": 128,
     "n_depth": 0,
-    "test_time": "2026-09-24T08:16:46Z",
-    "avg_ns": 8489062102,
-    "stddev_ns": 40784784,
-    "avg_ts": 15.078505,
-    "stddev_ts": 0.072482,
-    "samples_ns": [ 8436038582, 8497701047, 8510198768, 8461632075, 8539740041 ],
-    "samples_ts": [ 15.173, 15.0629, 15.0408, 15.1271, 14.9887 ]
+    "test_time": "2026-09-24T08:23:22Z",
+    "avg_ns": 8361054471,
+    "stddev_ns": 61461318,
+    "avg_ts": 15.309734,
+    "stddev_ts": 0.112293,
+    "samples_ns": [ 8442978693, 8337460548, 8294275201, 8324373521, 8406184395 ],
+    "samples_ts": [ 15.1605, 15.3524, 15.4323, 15.3765, 15.2269 ]
   }
 ]
