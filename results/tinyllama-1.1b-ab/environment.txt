@@ -1,9 +1,9 @@
 model=TinyLlama-1.1B-Chat-v1.0.Q4_0.gguf
 model_sha256=58d7f78ad80e6745d2148dc7391740c2de761da5791c853dec9a09b1f43a1ea9
-memvanta_commit=54ff41d8c94b6dfdb456a69899885e309e6b3e45
+memvanta_commit=29107c70ca80d21578b6bfcb974cdab4d881ae49
 llama_cpp_ref=6503355df0eb4f65875012523263c302fe0088c1
 threads=4 prompt=512 gen=128 ctx=768 batch=32 kv=f16 reps=5 warmup=1
-Linux runnervmtr4k5 6.17.0-1022-azure #22-Ubuntu SMP Mon Jul 27 17:24:03 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux
+Linux runnervmlun5p 6.17.0-1022-azure #22-Ubuntu SMP Mon Jul 27 17:24:03 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux
 Architecture:                            x86_64
 CPU op-mode(s):                          32-bit, 64-bit
 Address sizes:                           48 bits physical, 48 bits virtual

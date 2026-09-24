@@ -1,36 +1,36 @@
 {
   "benchmark": "TinyLlama 1.1B Q4_0 same-model CPU A/B",
   "memvanta_pp": {
-    "mean": 18.73752,
-    "sd": 0.019221394330276195,
-    "min": 18.7152,
-    "max": 18.7659,
-    "cv_pct": 0.10258238192821778
+    "mean": 18.46594,
+    "sd": 0.03913518876918794,
+    "min": 18.4097,
+    "max": 18.506,
+    "cv_pct": 0.21193174443969784
   },
   "memvanta_tg": {
-    "mean": 6.66033,
-    "sd": 0.012617898002440961,
-    "min": 6.64582,
-    "max": 6.67467,
-    "cv_pct": 0.18944854087471583
+    "mean": 6.664408,
+    "sd": 0.013577787743222356,
+    "min": 6.64032,
+    "max": 6.67318,
+    "cv_pct": 0.20373584185155463
   },
   "llama_pp": {
-    "mean": 78.97604,
-    "sd": 0.20640493695645787,
-    "min": 78.6667,
-    "max": 79.1857,
-    "cv_pct": 0.26135133764171753
+    "mean": 78.92706,
+    "sd": 0.2913998164035109,
+    "min": 78.4531,
+    "max": 79.1983,
+    "cv_pct": 0.3692014074811743
   },
   "llama_tg": {
-    "mean": 48.83346,
-    "sd": 0.1670370408023319,
-    "min": 48.6921,
-    "max": 49.0643,
-    "cv_pct": 0.3420544864163463
+    "mean": 48.57476,
+    "sd": 0.2799469556898252,
+    "min": 48.2253,
+    "max": 48.8463,
+    "cv_pct": 0.5763218504627201
   },
-  "memvanta_peak_rss_kib": 644112,
-  "llama_peak_rss_kib": 1193160,
-  "llama_vs_memvanta_pp_speedup": 4.214860878067108,
-  "llama_vs_memvanta_tg_speedup": 7.331988054645941,
-  "memvanta_rss_reduction_pct": 46.016292869355325
+  "memvanta_peak_rss_kib": 644308,
+  "llama_peak_rss_kib": 1194420,
+  "llama_vs_memvanta_pp_speedup": 4.274196710267661,
+  "llama_vs_memvanta_tg_speedup": 7.288683405937932,
+  "memvanta_rss_reduction_pct": 46.05683093049346
 }
