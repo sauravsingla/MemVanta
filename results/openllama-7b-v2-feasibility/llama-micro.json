@@ -2,7 +2,7 @@
   {
     "build_commit": "6503355",
     "build_number": 1,
-    "cpu_info": "Intel(R) Xeon(R) Platinum 8370C CPU @ 2.80GHz",
+    "cpu_info": "Intel(R) Xeon(R) 6973P-C",
     "gpu_info": "",
     "backends": "CPU",
     "model_filename": "openlm-research-open_llama_7b_v2-Q4_0.gguf",
@@ -35,18 +35,18 @@
     "n_prompt": 32,
     "n_gen": 0,
     "n_depth": 0,
-    "test_time": "2026-09-24T08:01:51Z",
-    "avg_ns": 1583337825,
+    "test_time": "2026-09-24T08:09:17Z",
+    "avg_ns": 583342538,
     "stddev_ns": 0,
-    "avg_ts": 20.210469,
+    "avg_ts": 54.856277,
     "stddev_ts": 0.000000,
-    "samples_ns": [ 1583337825 ],
-    "samples_ts": [ 20.2105 ]
+    "samples_ns": [ 583342538 ],
+    "samples_ts": [ 54.8563 ]
   },
   {
     "build_commit": "6503355",
     "build_number": 1,
-    "cpu_info": "Intel(R) Xeon(R) Platinum 8370C CPU @ 2.80GHz",
+    "cpu_info": "Intel(R) Xeon(R) 6973P-C",
     "gpu_info": "",
     "backends": "CPU",
     "model_filename": "openlm-research-open_llama_7b_v2-Q4_0.gguf",
@@ -79,12 +79,12 @@
     "n_prompt": 0,
     "n_gen": 16,
     "n_depth": 0,
-    "test_time": "2026-09-24T08:01:54Z",
-    "avg_ns": 2522671244,
+    "test_time": "2026-09-24T08:09:18Z",
+    "avg_ns": 1731314532,
     "stddev_ns": 0,
-    "avg_ts": 6.342483,
+    "avg_ts": 9.241533,
     "stddev_ts": 0.000000,
-    "samples_ns": [ 2522671244 ],
-    "samples_ts": [ 6.34248 ]
+    "samples_ns": [ 1731314532 ],
+    "samples_ts": [ 9.24153 ]
   }
 ]
