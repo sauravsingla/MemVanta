@@ -1,3 +1,3 @@
 
-llama_quantize: quantize time = 10844.31 ms
-llama_quantize:    total time = 10844.31 ms
+llama_quantize: quantize time = 11695.08 ms
+llama_quantize:    total time = 11695.08 ms
