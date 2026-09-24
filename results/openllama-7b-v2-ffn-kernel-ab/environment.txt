@@ -1,11 +1,11 @@
-baseline_commit=54ff41d8c94b6dfdb456a69899885e309e6b3e45
-candidate_commit=29107c70ca80d21578b6bfcb974cdab4d881ae49
+baseline_commit=bdc79b3fd8518e9caa060a43efa1b04742dc1f29
+candidate_commit=b94116260fd7a3f971abee27759fe7f5c8369001
 ab_schema=9
 reps=3
 performance_tolerance_pct=2
 model_sha256=892f6e2e840ed98bb7bc1d74da67ae0cca52b2d90b0316d0a7e66a37a5a60760
 threads=4 prompt=128 gen=16 ctx=256 batch=32 kv=f16
-Linux runnervmlun5p 6.17.0-1022-azure #22-Ubuntu SMP Mon Jul 27 17:24:03 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux
+Linux runnervmtr4k5 6.17.0-1022-azure #22-Ubuntu SMP Mon Jul 27 17:24:03 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux
 Architecture:                            x86_64
 CPU op-mode(s):                          32-bit, 64-bit
 Address sizes:                           48 bits physical, 48 bits virtual
