@@ -151,8 +151,16 @@ target_link_libraries(memvanta_eval PRIVATE memvanta_core)
 add_executable(memvanta_tokenize tools_tokenize.cpp)
 target_link_libraries(memvanta_tokenize PRIVATE memvanta_core)
 
-add_executable(memvanta_gguf_inspect tools_gguf_inspect.cpp)
-target_link_libraries(memvanta_gguf_inspect PRIVATE memvanta_core)
+# The inspector only needs the GGUF parser and mmap layer. Keep it isolated from
+# the full inference/OpenMP dependency graph so the small diagnostic utility
+# remains portable when packaged independently (for example in PyPI wheels).
+add_executable(memvanta_gguf_inspect
+    tools_gguf_inspect.cpp
+    src/gguf.cpp
+    src/mmap_file.cpp)
+target_include_directories(memvanta_gguf_inspect PRIVATE include)
+target_compile_options(memvanta_gguf_inspect PRIVATE
+    -Wall -Wextra -Wpedantic $<$<CONFIG:Release>:-O3>)
 
 add_executable(memvanta_tokenizer_tests tests/tokenizer_tests.cpp)
 target_link_libraries(memvanta_tokenizer_tests PRIVATE memvanta_core)
