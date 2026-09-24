@@ -26,6 +26,8 @@ jobs:
        github.event.workflow_run.head_branch == 'main')
     runs-on: ubuntu-22.04
     timeout-minutes: 30
+    outputs:
+      publishable: ${{ steps.provenance.outputs.publishable }}
 
     steps:
       - name: Checkout source
@@ -34,45 +36,60 @@ jobs:
           ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
           fetch-depth: 0
 
-      - name: Verify release provenance
-        if: github.event_name == 'workflow_run'
+      - name: Determine release provenance
+        id: provenance
         shell: bash
         env:
-          SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
+          SOURCE_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
         run: |
           set -euo pipefail
+
+          if [[ "${GITHUB_EVENT_NAME}" != "workflow_run" ]]; then
+            echo "publishable=true" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
           version="$(sed -nE 's/^project\(memvanta_cpu VERSION ([0-9]+\.[0-9]+\.[0-9]+) LANGUAGES CXX\)$/\1/p' CMakeLists.txt)"
           if [[ -z "${version}" ]]; then
             echo "Could not read project version from CMakeLists.txt" >&2
             exit 1
           fi
+
           tag="v${version}"
           git fetch --force --tags origin
-          tag_sha="$(git rev-list -n 1 "${tag}")"
-          if [[ "${tag_sha}" != "${SOURCE_SHA}" ]]; then
-            echo "Release tag ${tag} points to ${tag_sha}, but package source is ${SOURCE_SHA}" >&2
-            exit 1
+          tag_sha="$(git rev-list -n 1 "${tag}" 2>/dev/null || true)"
+          if [[ -z "${tag_sha}" || "${tag_sha}" != "${SOURCE_SHA}" ]]; then
+            echo "Package Release did not create ${tag} at ${SOURCE_SHA}; skipping PyPI publication."
+            echo "publishable=false" >> "${GITHUB_OUTPUT}"
+            exit 0
           fi
 
+          echo "publishable=true" >> "${GITHUB_OUTPUT}"
+
       - name: Set up Python
+        if: steps.provenance.outputs.publishable == 'true'
         uses: actions/setup-python@v6
         with:
           python-version: '3.13'
 
       - name: Build source distribution
+        if: steps.provenance.outputs.publishable == 'true'
         run: |
           python -m pip install --upgrade build twine
           python -m build --sdist --outdir wheelhouse
 
       - name: Build and test manylinux wheel
+        if: steps.provenance.outputs.publishable == 'true'
         uses: pypa/cibuildwheel@v4.2.0
         with:
           output-dir: wheelhouse
 
       - name: Validate package metadata
+        if: steps.provenance.outputs.publishable == 'true'
         run: python -m twine check wheelhouse/*
 
       - name: Upload Python distributions
+        if: steps.provenance.outputs.publishable == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: python-distributions
@@ -85,7 +102,8 @@ jobs:
     if: >-
       github.event_name == 'workflow_run' &&
       github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.head_branch == 'main'
+      github.event.workflow_run.head_branch == 'main' &&
+      needs.build.outputs.publishable == 'true'
     runs-on: ubuntu-latest
     environment:
       name: pypi
