@@ -1,11 +1,11 @@
 model=TinyLlama-1.1B-Chat-v1.0.Q4_0.gguf
 58d7f78ad80e6745d2148dc7391740c2de761da5791c853dec9a09b1f43a1ea9  TinyLlama-1.1B-Chat-v1.0.Q4_0.gguf
-memvanta_commit=5ff992473532fdd63f3a16300d6499c248de3a71
+memvanta_commit=966f4667e2e1a57357f7691376224d8a7c24aafa
 llama_cpp_ref=6503355df0eb4f65875012523263c302fe0088c1
 threads=4 prompt=128 gen=32 ctx=768 batch=32 kv=f16
 limits_mib=1536,1280,1152,1024,896,768,704,640,576,512
 cgroup=v2 systemd-run MemoryMax with MemorySwapMax=0
-Linux runnervmtr4k5 6.17.0-1022-azure #22-Ubuntu SMP Mon Jul 27 17:24:03 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux
+Linux runnervmlun5p 6.17.0-1022-azure #22-Ubuntu SMP Mon Jul 27 17:24:03 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux
 Architecture:                            x86_64
 CPU op-mode(s):                          32-bit, 64-bit
 Address sizes:                           48 bits physical, 48 bits virtual
@@ -13,21 +13,21 @@ Byte Order:                              Little Endian
 CPU(s):                                  4
 On-line CPU(s) list:                     0-3
 Vendor ID:                               AuthenticAMD
-Model name:                              AMD EPYC 7763 64-Core Processor
+Model name:                              AMD EPYC 9V74 80-Core Processor
 CPU family:                              25
-Model:                                   1
+Model:                                   17
 Thread(s) per core:                      2
 Core(s) per socket:                      2
 Socket(s):                               1
 Stepping:                                1
-BogoMIPS:                                4890.86
-Flags:                                   fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ht syscall nx mmxext fxsr_opt pdpe1gb rdtscp lm constant_tsc rep_good nopl tsc_reliable nonstop_tsc cpuid extd_apicid aperfmperf tsc_known_freq pni pclmulqdq ssse3 fma cx16 pcid sse4_1 sse4_2 movbe popcnt aes xsave avx f16c rdrand hypervisor lahf_lm cmp_legacy svm cr8_legacy abm sse4a misalignsse 3dnowprefetch osvw topoext vmmcall fsgsbase bmi1 avx2 smep bmi2 erms invpcid rdseed adx smap clflushopt clwb sha_ni xsaveopt xsavec xgetbv1 xsaves user_shstk clzero xsaveerptr rdpru arat npt nrip_save tsc_scale vmcb_clean flushbyasid decodeassists pausefilter pfthreshold v_vmsave_vmload umip vaes vpclmulqdq rdpid fsrm
+BogoMIPS:                                5192.26
+Flags:                                   fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ht syscall nx mmxext fxsr_opt pdpe1gb rdtscp lm constant_tsc rep_good nopl xtopology tsc_reliable nonstop_tsc cpuid extd_apicid aperfmperf tsc_known_freq pni pclmulqdq ssse3 fma cx16 pcid sse4_1 sse4_2 movbe popcnt aes xsave avx f16c rdrand hypervisor lahf_lm cmp_legacy svm cr8_legacy abm sse4a misalignsse 3dnowprefetch osvw topoext vmmcall fsgsbase bmi1 avx2 smep bmi2 erms invpcid avx512f avx512dq rdseed adx smap avx512ifma clflushopt clwb avx512cd sha_ni avx512bw avx512vl xsaveopt xsavec xgetbv1 xsaves user_shstk avx512_bf16 clzero xsaveerptr rdpru arat npt nrip_save tsc_scale vmcb_clean flushbyasid decodeassists pausefilter pfthreshold v_vmsave_vmload avx512vbmi umip avx512_vbmi2 gfni vaes vpclmulqdq avx512_vnni avx512_bitalg avx512_vpopcntdq rdpid fsrm
 Virtualization:                          AMD-V
 Hypervisor vendor:                       Microsoft
 Virtualization type:                     full
 L1d cache:                               64 KiB (2 instances)
 L1i cache:                               64 KiB (2 instances)
-L2 cache:                                1 MiB (2 instances)
+L2 cache:                                2 MiB (2 instances)
 L3 cache:                                32 MiB (1 instance)
 NUMA node(s):                            1
 NUMA node0 CPU(s):                       0-3
@@ -51,5 +51,5 @@ Vulnerability Tsa:                       Vulnerable: No microcode
 Vulnerability Tsx async abort:           Not affected
 Vulnerability Vmscape:                   Not affected
                total        used        free      shared  buff/cache   available
-Mem:            15Gi       1.0Gi        10Gi        51Mi       4.1Gi        14Gi
+Mem:            15Gi       1.0Gi        10Gi        53Mi       4.1Gi        14Gi
 Swap:          3.0Gi          0B       3.0Gi
