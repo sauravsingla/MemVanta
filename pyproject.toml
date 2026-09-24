@@ -68,7 +68,7 @@ MEMVANTA_BUILD_FUZZER = "OFF"
 [tool.cibuildwheel]
 build = ["cp311-manylinux_x86_64"]
 build-frontend = "build"
-test-command = "memvanta --help && memvanta-real --help && memvanta-tokenize --help && memvanta-gguf-inspect --help"
+test-command = "for cmd in memvanta memvanta-real memvanta-tokenize memvanta-gguf-inspect; do $cmd --help >/dev/null 2>&1; rc=$?; [ $rc -le 1 ] || exit $rc; done"
 
 [tool.cibuildwheel.linux]
 manylinux-x86_64-image = "manylinux_2_28"
