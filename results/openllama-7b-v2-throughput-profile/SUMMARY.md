@@ -2,15 +2,15 @@
 
 Exact verified Q4_0 GGUF, CPU-only, 4 threads, pp128/tg16, batch 32, F16 KV.
 
-- Prefill: 30126.50 ms
-- Decode total: 4951.60 ms
-- Projection kernels: 34171.12 ms (97.4% of profiled model time)
-- FFN GEMM: 21079.83 ms (61.7% of projection-kernel time)
-- Non-GEMM core residual: 906.67 ms
-- Dominant component: ffn_gemm_ms (21079.83 ms)
-- Dominant profiled kernel kind: ffn_up (7195.00 ms)
-- Peak RSS: 3819032 KiB
+- Prefill: 33404.60 ms
+- Decode total: 7135.63 ms
+- Projection kernels: 39542.58 ms (97.5% of profiled model time)
+- FFN GEMM: 24709.14 ms (62.5% of projection-kernel time)
+- Non-GEMM core residual: 997.18 ms
+- Dominant component: ffn_gemm_ms (24709.14 ms)
+- Dominant profiled kernel kind: ffn_down (8686.54 ms)
+- Peak RSS: 3819152 KiB
 - Page faults: major=1, minor=94654
-- Process CPU: 224%
+- Process CPU: 230%
 
 This profile selects the next optimization target; it is not a universal throughput claim.
