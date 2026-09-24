@@ -5,19 +5,29 @@
 #include <stdexcept>
 #include <string>
 
+static void usage(std::ostream& out) {
+    out << "usage: memvanta_gguf_inspect <model.gguf> [--expect-arch <architecture>]\n";
+}
+
 int main(int argc, char** argv) {
     try {
+        if (argc == 2) {
+            const std::string arg = argv[1];
+            if (arg == "--help" || arg == "-h") {
+                usage(std::cout);
+                return 0;
+            }
+        }
+
         if (argc < 2 || argc > 4) {
-            std::cerr
-                << "usage: memvanta_gguf_inspect <model.gguf> [--expect-arch <architecture>]\n";
+            usage(std::cerr);
             return 2;
         }
 
         std::string expected;
         if (argc > 2) {
             if (argc != 4 || std::string(argv[2]) != "--expect-arch") {
-                std::cerr
-                    << "usage: memvanta_gguf_inspect <model.gguf> [--expect-arch <architecture>]\n";
+                usage(std::cerr);
                 return 2;
             }
             expected = argv[3];
