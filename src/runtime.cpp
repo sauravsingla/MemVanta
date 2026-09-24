@@ -169,7 +169,7 @@ RunStats Runtime::run_stream() {
                 if (requested.contains(id)) {
                     continue;
                 }
-                if (cfg_.copy_cache && (cache_.contains(id) || prefetcher_.pending(id))) {
+                if (cfg_.copy_cache && (cache_.contains(id) || late_pending.contains(id))) {
                     continue;
                 }
 
@@ -252,10 +252,17 @@ RunStats Runtime::run_stream() {
         }
 
         for (const auto& [id, bytes] : requested) {
-            (void)id;
             ++pf.unused;
             pf.bytes_unused += bytes;
+            if (cfg_.copy_cache && prefetcher_.pending(id)) {
+                const auto [late_it, inserted] = late_pending.emplace(id, bytes);
+                (void)late_it;
+                if (inserted) {
+                    late_pending_bytes += bytes;
+                }
+            }
         }
+        record_reserved_peak();
         requested.clear();
         inflight_bytes = 0;
     }
