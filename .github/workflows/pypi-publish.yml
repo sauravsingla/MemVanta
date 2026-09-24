@@ -37,6 +37,8 @@ jobs:
       - name: Verify release provenance
         if: github.event_name == 'workflow_run'
         shell: bash
+        env:
+          SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
           set -euo pipefail
           version="$(sed -nE 's/^project\(memvanta_cpu VERSION ([0-9]+\.[0-9]+\.[0-9]+) LANGUAGES CXX\)$/\1/p' CMakeLists.txt)"
@@ -47,8 +49,8 @@ jobs:
           tag="v${version}"
           git fetch --force --tags origin
           tag_sha="$(git rev-list -n 1 "${tag}")"
-          if [[ "${tag_sha}" != "${GITHUB_SHA}" ]]; then
-            echo "Release tag ${tag} points to ${tag_sha}, but package source is ${GITHUB_SHA}" >&2
+          if [[ "${tag_sha}" != "${SOURCE_SHA}" ]]; then
+            echo "Release tag ${tag} points to ${tag_sha}, but package source is ${SOURCE_SHA}" >&2
             exit 1
           fi
 
