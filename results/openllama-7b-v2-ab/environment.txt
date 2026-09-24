@@ -6,10 +6,10 @@ model_bytes=3825818912
   "magic": "GGUF",
   "gguf_version": 3
 }
-memvanta_commit=54ff41d8c94b6dfdb456a69899885e309e6b3e45
+memvanta_commit=29107c70ca80d21578b6bfcb974cdab4d881ae49
 llama_cpp_ref=6503355df0eb4f65875012523263c302fe0088c1
 threads=4 prompt=512 gen=128 ctx=768 batch=32 kv=f16 reps=5 warmup=1
-Linux runnervmtr4k5 6.17.0-1022-azure #22-Ubuntu SMP Mon Jul 27 17:24:03 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux
+Linux runnervmlun5p 6.17.0-1022-azure #22-Ubuntu SMP Mon Jul 27 17:24:03 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux
 Architecture:                            x86_64
 CPU op-mode(s):                          32-bit, 64-bit
 Address sizes:                           48 bits physical, 48 bits virtual
@@ -55,5 +55,5 @@ Vulnerability Tsa:                       Vulnerable: No microcode
 Vulnerability Tsx async abort:           Not affected
 Vulnerability Vmscape:                   Not affected
                total        used        free      shared  buff/cache   available
-Mem:            15Gi       1.0Gi       7.8Gi        51Mi       7.1Gi        14Gi
+Mem:            15Gi       1.0Gi       7.9Gi        51Mi       7.1Gi        14Gi
 Swap:          3.0Gi          0B       3.0Gi
