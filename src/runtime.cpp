@@ -94,7 +94,6 @@ RunStats Runtime::run_stream() {
     // until Prefetcher reports that the queued/active copy has actually ended.
     std::unordered_map<std::uint32_t, std::uint64_t> late_pending;
     std::uint64_t inflight_bytes = 0;
-    std::uint64_t late_pending_bytes = 0;
     std::uint64_t window_peak_inflight = 0;
     double window_ms = 0.0;
     std::uint32_t window_items = 0;
@@ -102,18 +101,6 @@ RunStats Runtime::run_stream() {
     std::uint64_t window_useful = 0;
     std::uint64_t window_late = 0;
     std::uint64_t window_budget_skips = 0;
-
-    const auto reserved_bytes = [&] {
-        if (late_pending_bytes > std::numeric_limits<std::uint64_t>::max() - inflight_bytes) {
-            return std::numeric_limits<std::uint64_t>::max();
-        }
-        return inflight_bytes + late_pending_bytes;
-    };
-    const auto record_reserved_peak = [&] {
-        const auto reserved = reserved_bytes();
-        window_peak_inflight = std::max(window_peak_inflight, reserved);
-        pf.max_inflight_bytes = std::max(pf.max_inflight_bytes, reserved);
-    };
 
     for (std::uint32_t p = 0; p < cfg_.passes; ++p) {
         requested.clear();
@@ -128,7 +115,6 @@ RunStats Runtime::run_stream() {
                         ++it;
                         continue;
                     }
-                    late_pending_bytes -= it->second;
                     it = late_pending.erase(it);
                 }
             }
@@ -150,16 +136,18 @@ RunStats Runtime::run_stream() {
                     if (prefetcher_.pending(i)) {
                         const auto [late_it, inserted] = late_pending.emplace(i, bytes);
                         (void)late_it;
-                        if (inserted) {
-                            late_pending_bytes += bytes;
-                        }
+                        (void)inserted;
                     }
                 }
                 ++window_consumed;
                 inflight_bytes -= std::min(inflight_bytes, bytes);
                 requested.erase(it);
-                record_reserved_peak();
             }
+
+            std::uint64_t budget_reserved_bytes =
+                cfg_.copy_cache ? prefetcher_.pending_bytes() : inflight_bytes;
+            window_peak_inflight = std::max(window_peak_inflight, budget_reserved_bytes);
+            pf.max_inflight_bytes = std::max(pf.max_inflight_bytes, budget_reserved_bytes);
 
             for (std::uint32_t d = 1; d <= depth; ++d) {
                 if (i + d >= store_.count()) {
@@ -175,9 +163,8 @@ RunStats Runtime::run_stream() {
 
                 const auto bytes = store_.slice(id).bytes;
                 ++pf.eligible;
-                const auto reserved = reserved_bytes();
                 if (inflight_limit != unlimited &&
-                    (bytes > inflight_limit || reserved > inflight_limit - bytes)) {
+                    (bytes > inflight_limit || budget_reserved_bytes > inflight_limit - bytes)) {
                     ++pf.skipped_budget;
                     ++window_budget_skips;
                     continue;
@@ -192,7 +179,13 @@ RunStats Runtime::run_stream() {
                 } else {
                     store_.prefetch(id);
                 }
-                record_reserved_peak();
+                if (bytes > std::numeric_limits<std::uint64_t>::max() - budget_reserved_bytes) {
+                    budget_reserved_bytes = std::numeric_limits<std::uint64_t>::max();
+                } else {
+                    budget_reserved_bytes += bytes;
+                }
+                window_peak_inflight = std::max(window_peak_inflight, budget_reserved_bytes);
+                pf.max_inflight_bytes = std::max(pf.max_inflight_bytes, budget_reserved_bytes);
             }
 
             const auto& s = store_.slice(i);
@@ -257,12 +250,9 @@ RunStats Runtime::run_stream() {
             if (cfg_.copy_cache && prefetcher_.pending(id)) {
                 const auto [late_it, inserted] = late_pending.emplace(id, bytes);
                 (void)late_it;
-                if (inserted) {
-                    late_pending_bytes += bytes;
-                }
+                (void)inserted;
             }
         }
-        record_reserved_peak();
         requested.clear();
         inflight_bytes = 0;
     }
