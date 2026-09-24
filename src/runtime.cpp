@@ -1,4 +1,5 @@
 #include "memvanta/runtime.hpp"
+
 #include "memvanta/common.hpp"
 #include "memvanta/prefetch_policy.hpp"
 
@@ -6,6 +7,7 @@
 #include <chrono>
 #include <limits>
 #include <memory>
+#include <stdexcept>
 #include <sys/resource.h>
 #include <unordered_map>
 
@@ -20,11 +22,15 @@ Runtime::Runtime(const TensorStore& s, RunConfig c)
     cfg_.adaptive_high_useful_ratio =
         std::clamp(cfg_.adaptive_high_useful_ratio, cfg_.adaptive_low_useful_ratio, 1.0);
     if (cfg_.adaptive_prefetch) {
-        if (cfg_.adaptive_min_depth == 0) cfg_.adaptive_min_depth = 1;
+        if (cfg_.adaptive_min_depth == 0) {
+            cfg_.adaptive_min_depth = 1;
+        }
         if (cfg_.adaptive_max_depth < cfg_.adaptive_min_depth) {
             cfg_.adaptive_max_depth = cfg_.adaptive_min_depth;
         }
-        if (cfg_.adaptive_window == 0) cfg_.adaptive_window = 1;
+        if (cfg_.adaptive_window == 0) {
+            cfg_.adaptive_window = 1;
+        }
         cfg_.prefetch_depth =
             std::clamp(cfg_.prefetch_depth, cfg_.adaptive_min_depth, cfg_.adaptive_max_depth);
     }
@@ -32,7 +38,9 @@ Runtime::Runtime(const TensorStore& s, RunConfig c)
 
 std::uint64_t Runtime::rss_kb() {
     rusage r{};
-    if (getrusage(RUSAGE_SELF, &r) != 0) return 0;
+    if (getrusage(RUSAGE_SELF, &r) != 0) {
+        return 0;
+    }
 #if defined(__APPLE__)
     return static_cast<std::uint64_t>(r.ru_maxrss / 1024);
 #else
@@ -41,6 +49,12 @@ std::uint64_t Runtime::rss_kb() {
 }
 
 RunStats Runtime::run_stream() {
+    if (started_) {
+        throw std::runtime_error(
+            "Runtime::run_stream is single-shot; construct a new Runtime for another run");
+    }
+    started_ = true;
+
     const auto start = std::chrono::steady_clock::now();
     std::uint64_t checksum = 1469598103934665603ull;
     std::uint64_t total = 0;
@@ -48,10 +62,9 @@ RunStats Runtime::run_stream() {
     PrefetchStats pf{};
 
     const std::uint64_t unlimited = std::numeric_limits<std::uint64_t>::max();
-    const std::uint64_t configured_budget =
-        cfg_.prefetch_budget_bytes
-            ? cfg_.prefetch_budget_bytes
-            : (cfg_.copy_cache ? cfg_.cache_bytes : unlimited);
+    const std::uint64_t configured_budget = cfg_.prefetch_budget_bytes
+                                                ? cfg_.prefetch_budget_bytes
+                                                : (cfg_.copy_cache ? cfg_.cache_bytes : unlimited);
 
     // Copy-cache adaptive look-ahead must leave room for the slice being consumed
     // and for cache turnover while asynchronous requests complete. Real 7B
@@ -65,12 +78,11 @@ RunStats Runtime::run_stream() {
                                              ? std::min(configured_budget, adaptive_cache_limit)
                                              : configured_budget;
 
-    AdaptivePrefetchController controller(
-        {cfg_.adaptive_min_depth,
-         cfg_.adaptive_max_depth,
-         cfg_.adaptive_low_useful_ratio,
-         cfg_.adaptive_high_useful_ratio},
-        depth);
+    AdaptivePrefetchController controller({cfg_.adaptive_min_depth,
+                                           cfg_.adaptive_max_depth,
+                                           cfg_.adaptive_low_useful_ratio,
+                                           cfg_.adaptive_high_useful_ratio},
+                                          depth);
 
     pf.final_depth = depth;
     pf.min_depth_seen = depth;
@@ -78,6 +90,9 @@ RunStats Runtime::run_stream() {
     pf.hot_set_budget_bytes = inflight_limit == unlimited ? 0 : inflight_limit;
 
     std::unordered_map<std::uint32_t, std::uint64_t> requested;
+    // Requests that were consumed before the worker finished stay reserved here
+    // until Prefetcher reports that the queued/active copy has actually ended.
+    std::unordered_map<std::uint32_t, std::uint64_t> late_pending;
     std::uint64_t inflight_bytes = 0;
     std::uint64_t window_peak_inflight = 0;
     double window_ms = 0.0;
@@ -94,6 +109,16 @@ RunStats Runtime::run_stream() {
         for (std::uint32_t i = 0; i < store_.count(); ++i) {
             const auto item_start = std::chrono::steady_clock::now();
 
+            if (cfg_.copy_cache) {
+                for (auto it = late_pending.begin(); it != late_pending.end();) {
+                    if (prefetcher_.pending(it->first)) {
+                        ++it;
+                        continue;
+                    }
+                    it = late_pending.erase(it);
+                }
+            }
+
             if (auto it = requested.find(i); it != requested.end()) {
                 const auto bytes = it->second;
                 // mmap-only prefetch is advisory and has no copy-cache residency bit to
@@ -108,22 +133,38 @@ RunStats Runtime::run_stream() {
                     ++pf.late;
                     ++window_late;
                     pf.bytes_unused += bytes;
+                    if (prefetcher_.pending(i)) {
+                        const auto [late_it, inserted] = late_pending.emplace(i, bytes);
+                        (void)late_it;
+                        (void)inserted;
+                    }
                 }
                 ++window_consumed;
                 inflight_bytes -= std::min(inflight_bytes, bytes);
                 requested.erase(it);
             }
 
+            std::uint64_t budget_reserved_bytes =
+                cfg_.copy_cache ? prefetcher_.pending_bytes() : inflight_bytes;
+            window_peak_inflight = std::max(window_peak_inflight, budget_reserved_bytes);
+            pf.max_inflight_bytes = std::max(pf.max_inflight_bytes, budget_reserved_bytes);
+
             for (std::uint32_t d = 1; d <= depth; ++d) {
-                if (i + d >= store_.count()) break;
+                if (i + d >= store_.count()) {
+                    break;
+                }
                 const auto id = i + d;
-                if (requested.find(id) != requested.end()) continue;
-                if (cfg_.copy_cache && cache_.contains(id)) continue;
+                if (requested.contains(id)) {
+                    continue;
+                }
+                if (cfg_.copy_cache && (cache_.contains(id) || late_pending.contains(id))) {
+                    continue;
+                }
 
                 const auto bytes = store_.slice(id).bytes;
                 ++pf.eligible;
                 if (inflight_limit != unlimited &&
-                    (bytes > inflight_limit || inflight_bytes > inflight_limit - bytes)) {
+                    (bytes > inflight_limit || budget_reserved_bytes > inflight_limit - bytes)) {
                     ++pf.skipped_budget;
                     ++window_budget_skips;
                     continue;
@@ -131,8 +172,6 @@ RunStats Runtime::run_stream() {
 
                 requested.emplace(id, bytes);
                 inflight_bytes += bytes;
-                window_peak_inflight = std::max(window_peak_inflight, inflight_bytes);
-                pf.max_inflight_bytes = std::max(pf.max_inflight_bytes, inflight_bytes);
                 ++pf.requests;
                 pf.bytes_requested += bytes;
                 if (cfg_.copy_cache) {
@@ -140,6 +179,13 @@ RunStats Runtime::run_stream() {
                 } else {
                     store_.prefetch(id);
                 }
+                if (bytes > std::numeric_limits<std::uint64_t>::max() - budget_reserved_bytes) {
+                    budget_reserved_bytes = std::numeric_limits<std::uint64_t>::max();
+                } else {
+                    budget_reserved_bytes += bytes;
+                }
+                window_peak_inflight = std::max(window_peak_inflight, budget_reserved_bytes);
+                pf.max_inflight_bytes = std::max(pf.max_inflight_bytes, budget_reserved_bytes);
             }
 
             const auto& s = store_.slice(i);
@@ -160,12 +206,13 @@ RunStats Runtime::run_stream() {
                 checksum ^= u[j];
                 checksum *= 1099511628211ull;
             }
-            if (!cfg_.copy_cache) store_.release(i);
+            if (!cfg_.copy_cache) {
+                store_.release(i);
+            }
             total += s.bytes;
 
             const auto item_end = std::chrono::steady_clock::now();
-            window_ms +=
-                std::chrono::duration<double, std::milli>(item_end - item_start).count();
+            window_ms += std::chrono::duration<double, std::milli>(item_end - item_start).count();
             ++window_items;
 
             if (cfg_.adaptive_prefetch && window_items >= cfg_.adaptive_window) {
@@ -198,9 +245,13 @@ RunStats Runtime::run_stream() {
         }
 
         for (const auto& [id, bytes] : requested) {
-            (void)id;
             ++pf.unused;
             pf.bytes_unused += bytes;
+            if (cfg_.copy_cache && prefetcher_.pending(id)) {
+                const auto [late_it, inserted] = late_pending.emplace(id, bytes);
+                (void)late_it;
+                (void)inserted;
+            }
         }
         requested.clear();
         inflight_bytes = 0;
@@ -210,6 +261,8 @@ RunStats Runtime::run_stream() {
     const double sec = std::chrono::duration<double>(end - start).count();
     prefetcher_.stop();
     prefetcher_.rethrow_if_failed();
+    pf.max_pending_prefetch_bytes = prefetcher_.peak_pending_bytes();
+    pf.max_prefetched_cache_bytes = cache_.peak_prefetched_bytes();
     pf.final_depth = depth;
     return {sec, gib(total) / sec, checksum, cache_.stats(), rss_kb(), pf};
 }
