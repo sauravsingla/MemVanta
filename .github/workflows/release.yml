@@ -2,8 +2,15 @@ name: Package Release
 
 on:
   push:
+    branches:
+      - main
     tags:
       - 'v*.*.*'
+    paths:
+      - 'CMakeLists.txt'
+      - 'CITATION.cff'
+      - 'README.md'
+      - '.github/workflows/release.yml'
   workflow_dispatch:
     inputs:
       tag:
@@ -21,31 +28,62 @@ jobs:
     timeout-minutes: 30
 
     steps:
+      - name: Checkout source
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
       - name: Resolve release tag
         id: release
         shell: bash
         env:
           INPUT_TAG: ${{ inputs.tag }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+
           if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
             tag="${INPUT_TAG}"
-          else
+            source_ref="${tag}"
+          elif [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
             tag="${GITHUB_REF_NAME}"
+            source_ref="${tag}"
+          else
+            project_version="$(sed -nE 's/^project\(memvanta_cpu VERSION ([0-9]+\.[0-9]+\.[0-9]+) LANGUAGES CXX\)$/\1/p' CMakeLists.txt)"
+            if [[ -z "${project_version}" ]]; then
+              echo "Could not read project version from CMakeLists.txt" >&2
+              exit 1
+            fi
+            tag="v${project_version}"
+            source_ref="${GITHUB_SHA}"
           fi
+
           if [[ ! "${tag}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "Release tag must match vX.Y.Z; got: ${tag}" >&2
             exit 1
           fi
-          echo "tag=${tag}" >> "${GITHUB_OUTPUT}"
 
-      - name: Checkout release tag
+          skip=false
+          if [[ "${GITHUB_EVENT_NAME}" == "push" && "${GITHUB_REF_TYPE}" == "branch" ]]; then
+            if gh release view "${tag}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+              echo "Release ${tag} already exists; nothing to publish from this main-branch push."
+              skip=true
+            fi
+          fi
+
+          echo "tag=${tag}" >> "${GITHUB_OUTPUT}"
+          echo "source_ref=${source_ref}" >> "${GITHUB_OUTPUT}"
+          echo "skip=${skip}" >> "${GITHUB_OUTPUT}"
+
+      - name: Checkout release source
+        if: steps.release.outputs.skip != 'true'
         uses: actions/checkout@v6
         with:
-          ref: ${{ steps.release.outputs.tag }}
+          ref: ${{ steps.release.outputs.source_ref }}
           fetch-depth: 0
 
       - name: Verify project version matches tag
+        if: steps.release.outputs.skip != 'true'
         shell: bash
         env:
           RELEASE_TAG: ${{ steps.release.outputs.tag }}
@@ -62,26 +100,31 @@ jobs:
           fi
 
       - name: Install build dependencies
+        if: steps.release.outputs.skip != 'true'
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential cmake ninja-build
 
       - name: Configure portable Release build
+        if: steps.release.outputs.skip != 'true'
         run: >-
           cmake -S . -B build-release -G Ninja
           -DCMAKE_BUILD_TYPE=Release
           -DMEMVANTA_NATIVE=OFF
 
       - name: Build runtime and test suite
+        if: steps.release.outputs.skip != 'true'
         run: >-
           cmake --build build-release
           --target memvanta memvanta_real memvanta_tokenize memvanta_gguf_inspect memvanta_tests
           -j "$(nproc)"
 
       - name: Run correctness tests
+        if: steps.release.outputs.skip != 'true'
         run: ctest --test-dir build-release --output-on-failure
 
       - name: Assemble release archive
+        if: steps.release.outputs.skip != 'true'
         shell: bash
         env:
           RELEASE_TAG: ${{ steps.release.outputs.tag }}
@@ -113,6 +156,7 @@ jobs:
           )
 
       - name: Upload workflow artifact
+        if: steps.release.outputs.skip != 'true'
         uses: actions/upload-artifact@v6
         with:
           name: ${{ steps.release.outputs.tag }}-linux-x86_64
@@ -122,6 +166,7 @@ jobs:
           if-no-files-found: error
 
       - name: Attach assets to GitHub release
+        if: steps.release.outputs.skip != 'true'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -134,7 +179,8 @@ jobs:
           else
             gh release create "${RELEASE_TAG}" dist/*.tar.gz dist/*.sha256 \
               --repo "${GITHUB_REPOSITORY}" \
-              --title "MemVanta ${RELEASE_TAG}" \
+              --target "$(git rev-parse HEAD)" \
+              --title "MemVanta ${RELEASE_TAG} — Low-Memory CPU LLM Inference for GGUF" \
               --generate-notes \
               --prerelease
           fi
