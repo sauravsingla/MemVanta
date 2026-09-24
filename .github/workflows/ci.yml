@@ -35,15 +35,12 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential cmake ninja-build clang-format
 
-      - name: Report format drift for refactored files
+      - name: Enforce clang-format across C++ tree
         if: matrix.build_type == 'Release'
         run: |
-          clang-format --dry-run \
-            src/runtime.cpp \
-            src/prefetch_policy.cpp \
-            include/memvanta/prefetch_policy.hpp \
-            tests/prefetch_policy_tests.cpp \
-            tools_gguf_inspect.cpp
+          find src include tests benchmarks -type f \( -name '*.cpp' -o -name '*.hpp' \) -print0 \
+            | xargs -0 clang-format --dry-run --Werror
+          clang-format --dry-run --Werror tools_gguf_inspect.cpp tools_tokenize.cpp
 
       - name: Configure
         run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}

@@ -1,4 +1,5 @@
 #include "memvanta/llama_model.hpp"
+
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -10,24 +11,190 @@
 #include <sys/resource.h>
 #include <thread>
 #include <vector>
-using Clock=std::chrono::steady_clock;
+using Clock = std::chrono::steady_clock;
 namespace {
-struct Stat{double mean{},sd{},median{},min{},max{};};
-Stat stat(std::vector<double>v){Stat s;if(v.empty())return s;s.mean=std::accumulate(v.begin(),v.end(),0.0)/v.size();double q=0;for(double x:v)q+=(x-s.mean)*(x-s.mean);s.sd=v.size()>1?std::sqrt(q/(v.size()-1)):0;s.min=*std::min_element(v.begin(),v.end());s.max=*std::max_element(v.begin(),v.end());std::sort(v.begin(),v.end());s.median=v.size()%2?v[v.size()/2]:(v[v.size()/2-1]+v[v.size()/2])/2;return s;}
-double rss_mib(){rusage r{};getrusage(RUSAGE_SELF,&r);
+struct Stat {
+    double mean{}, sd{}, median{}, min{}, max{};
+};
+Stat stat(std::vector<double> v) {
+    Stat s;
+    if (v.empty())
+        return s;
+    s.mean = std::accumulate(v.begin(), v.end(), 0.0) / v.size();
+    double q = 0;
+    for (double x : v)
+        q += (x - s.mean) * (x - s.mean);
+    s.sd = v.size() > 1 ? std::sqrt(q / (v.size() - 1)) : 0;
+    s.min = *std::min_element(v.begin(), v.end());
+    s.max = *std::max_element(v.begin(), v.end());
+    std::sort(v.begin(), v.end());
+    s.median = v.size() % 2 ? v[v.size() / 2] : (v[v.size() / 2 - 1] + v[v.size() / 2]) / 2;
+    return s;
+}
+double rss_mib() {
+    rusage r{};
+    getrusage(RUSAGE_SELF, &r);
 #if defined(__APPLE__)
-return static_cast<double>(r.ru_maxrss)/(1024.0*1024.0);
+    return static_cast<double>(r.ru_maxrss) / (1024.0 * 1024.0);
 #else
-return static_cast<double>(r.ru_maxrss)/1024.0;
+    return static_cast<double>(r.ru_maxrss) / 1024.0;
 #endif
 }
-std::vector<int> fixed_tokens(std::size_t n,std::size_t vocab){std::vector<int>x(n);for(std::size_t i=0;i<n;++i)x[i]=static_cast<int>((i*1543+17)%std::max<std::size_t>(vocab,1));return x;}
+std::vector<int> fixed_tokens(std::size_t n, std::size_t vocab) {
+    std::vector<int> x(n);
+    for (std::size_t i = 0; i < n; ++i)
+        x[i] = static_cast<int>((i * 1543 + 17) % std::max<std::size_t>(vocab, 1));
+    return x;
 }
-int main(int argc,char**argv){try{std::string path,csv;unsigned threads=std::max(1u,std::thread::hardware_concurrency()),reps=5,warmup=1;std::size_t ctx=1024,prompt_n=512,gen_n=128,client_prompt=128,client_out=256,batch_size=16;std::string kv="f16";bool run_client=true;for(int i=1;i<argc;++i){std::string a=argv[i];auto val=[&](){if(i+1>=argc)throw std::runtime_error("missing value");return std::string(argv[++i]);};if(a=="--model")path=val();else if(a=="--threads")threads=std::stoul(val());else if(a=="--reps")reps=std::stoul(val());else if(a=="--warmup")warmup=std::stoul(val());else if(a=="--ctx")ctx=std::stoull(val());else if(a=="--prompt")prompt_n=std::stoull(val());else if(a=="--gen")gen_n=std::stoull(val());else if(a=="--client-prompt")client_prompt=std::stoull(val());else if(a=="--client-out")client_out=std::stoull(val());else if(a=="--csv")csv=val();else if(a=="--batch")batch_size=std::stoull(val());else if(a=="--kv")kv=val();else if(a=="--no-client")run_client=false;else throw std::runtime_error("unknown arg: "+a);}if(path.empty())throw std::runtime_error("--model required");auto load0=Clock::now();memvanta::LlamaModel m(path,threads,ctx,128,memvanta::parse_kv_cache_type(kv));auto load1=Clock::now();const double load_ms=std::chrono::duration<double,std::milli>(load1-load0).count();prompt_n=std::min(prompt_n,m.config().n_ctx);gen_n=std::min(gen_n,m.config().n_ctx);client_prompt=std::min(client_prompt,m.config().n_ctx>2?m.config().n_ctx-2:std::size_t(0));client_out=std::min(client_out,m.config().n_ctx-client_prompt);if(run_client&&client_out<2)throw std::runtime_error("client benchmark requires at least 2 output tokens; reduce --client-prompt or increase --ctx");auto prompt=fixed_tokens(prompt_n,m.config().vocab),seed=fixed_tokens(std::min<std::size_t>(128,m.config().n_ctx>gen_n?m.config().n_ctx-gen_n:0),m.config().vocab),cp=fixed_tokens(client_prompt,m.config().vocab);memvanta::Sampler greedy({0,1,1});
-    auto pp=[&](){m.reset();auto t0=Clock::now();m.prefill(prompt,batch_size,true);auto t1=Clock::now();return prompt.size()/std::chrono::duration<double>(t1-t0).count();};
-    auto tg=[&](){m.reset();m.prefill(seed,batch_size,false);int cur=17%m.config().vocab;auto t0=Clock::now();for(std::size_t i=0;i<gen_n;++i){cur=greedy.sample(m.forward(cur,true));}auto t1=Clock::now();return gen_n/std::chrono::duration<double>(t1-t0).count();};
-    auto client=[&](){m.reset();auto t0=Clock::now();m.prefill(cp,batch_size,false);int cur=23%m.config().vocab;cur=greedy.sample(m.forward(cur,true));auto t1=Clock::now();for(std::size_t i=1;i<client_out;++i)cur=greedy.sample(m.forward(cur,true));auto t2=Clock::now();return std::pair<double,double>(std::chrono::duration<double,std::milli>(t1-t0).count(),(client_out-1)/std::chrono::duration<double>(t2-t1).count());};
-    for(unsigned i=0;i<warmup;++i){(void)pp();(void)tg();}
-    std::vector<double>ppv,tgv,ttfv,outv;for(unsigned r=0;r<reps;++r){ppv.push_back(pp());tgv.push_back(tg());if(run_client){auto [a,b]=client();ttfv.push_back(a);outv.push_back(b);}}
-    auto sp=stat(ppv),sg=stat(tgv),st=stat(ttfv),so=stat(outv);auto name=m.gguf().get_string("general.name").value_or("GGUF model");std::uint64_t params=0,bytes=0;for(auto&t:m.gguf().tensors()){params+=t.elements();bytes+=t.nbytes;}std::cout<<"| model | size | params | backend | threads | test | t/s |\n|---|---:|---:|---|---:|---|---:|\n";std::cout<<"| "<<name<<" | "<<std::fixed<<std::setprecision(2)<<bytes/1048576.0<<" MiB | "<<params/1e6<<" M | MemVanta CPU | "<<threads<<" | pp"<<prompt_n<<" | "<<sp.mean<<" ± "<<sp.sd<<" |\n";std::cout<<"| "<<name<<" | "<<bytes/1048576.0<<" MiB | "<<params/1e6<<" M | MemVanta CPU | "<<threads<<" | tg"<<gen_n<<" | "<<sg.mean<<" ± "<<sg.sd<<" |\n";if(run_client)std::cout<<"TTFT("<<client_prompt<<" input): "<<st.mean<<" ± "<<st.sd<<" ms; output TPS("<<client_out<<"): "<<so.mean<<" ± "<<so.sd<<"\n";std::cout<<"load="<<load_ms<<" ms peak_rss="<<rss_mib()<<" MiB kv_alloc="<<m.kv_bytes_allocated()/1048576.0<<" MiB batch="<<batch_size<<" kv="<<memvanta::kv_cache_type_name(m.kv_type())<<"\n";
-    if(!csv.empty()){std::ofstream f(csv);f<<"rep,pp_tps,tg_tps,ttft_ms,output_tps\n";for(std::size_t i=0;i<ppv.size();++i){f<<i+1<<","<<ppv[i]<<","<<tgv[i]<<",";if(run_client)f<<ttfv[i]<<","<<outv[i];else f<<",";f<<"\n";}}return 0;}catch(const std::exception&e){std::cerr<<"error: "<<e.what()<<"\n";return 2;}}
+} // namespace
+int main(int argc, char** argv) {
+    try {
+        std::string path, csv;
+        unsigned threads = std::max(1u, std::thread::hardware_concurrency()), reps = 5, warmup = 1;
+        std::size_t ctx = 1024, prompt_n = 512, gen_n = 128, client_prompt = 128, client_out = 256,
+                    batch_size = 16;
+        std::string kv = "f16";
+        bool run_client = true;
+        for (int i = 1; i < argc; ++i) {
+            std::string a = argv[i];
+            auto val = [&]() {
+                if (i + 1 >= argc)
+                    throw std::runtime_error("missing value");
+                return std::string(argv[++i]);
+            };
+            if (a == "--model")
+                path = val();
+            else if (a == "--threads")
+                threads = std::stoul(val());
+            else if (a == "--reps")
+                reps = std::stoul(val());
+            else if (a == "--warmup")
+                warmup = std::stoul(val());
+            else if (a == "--ctx")
+                ctx = std::stoull(val());
+            else if (a == "--prompt")
+                prompt_n = std::stoull(val());
+            else if (a == "--gen")
+                gen_n = std::stoull(val());
+            else if (a == "--client-prompt")
+                client_prompt = std::stoull(val());
+            else if (a == "--client-out")
+                client_out = std::stoull(val());
+            else if (a == "--csv")
+                csv = val();
+            else if (a == "--batch")
+                batch_size = std::stoull(val());
+            else if (a == "--kv")
+                kv = val();
+            else if (a == "--no-client")
+                run_client = false;
+            else
+                throw std::runtime_error("unknown arg: " + a);
+        }
+        if (path.empty())
+            throw std::runtime_error("--model required");
+        auto load0 = Clock::now();
+        memvanta::LlamaModel m(path, threads, ctx, 128, memvanta::parse_kv_cache_type(kv));
+        auto load1 = Clock::now();
+        const double load_ms = std::chrono::duration<double, std::milli>(load1 - load0).count();
+        prompt_n = std::min(prompt_n, m.config().n_ctx);
+        gen_n = std::min(gen_n, m.config().n_ctx);
+        client_prompt =
+            std::min(client_prompt, m.config().n_ctx > 2 ? m.config().n_ctx - 2 : std::size_t(0));
+        client_out = std::min(client_out, m.config().n_ctx - client_prompt);
+        if (run_client && client_out < 2)
+            throw std::runtime_error("client benchmark requires at least 2 output tokens; reduce "
+                                     "--client-prompt or increase --ctx");
+        auto prompt = fixed_tokens(prompt_n, m.config().vocab),
+             seed = fixed_tokens(std::min<std::size_t>(
+                                     128, m.config().n_ctx > gen_n ? m.config().n_ctx - gen_n : 0),
+                                 m.config().vocab),
+             cp = fixed_tokens(client_prompt, m.config().vocab);
+        memvanta::Sampler greedy({0, 1, 1});
+        auto pp = [&]() {
+            m.reset();
+            auto t0 = Clock::now();
+            m.prefill(prompt, batch_size, true);
+            auto t1 = Clock::now();
+            return prompt.size() / std::chrono::duration<double>(t1 - t0).count();
+        };
+        auto tg = [&]() {
+            m.reset();
+            m.prefill(seed, batch_size, false);
+            int cur = 17 % m.config().vocab;
+            auto t0 = Clock::now();
+            for (std::size_t i = 0; i < gen_n; ++i) {
+                cur = greedy.sample(m.forward(cur, true));
+            }
+            auto t1 = Clock::now();
+            return gen_n / std::chrono::duration<double>(t1 - t0).count();
+        };
+        auto client = [&]() {
+            m.reset();
+            auto t0 = Clock::now();
+            m.prefill(cp, batch_size, false);
+            int cur = 23 % m.config().vocab;
+            cur = greedy.sample(m.forward(cur, true));
+            auto t1 = Clock::now();
+            for (std::size_t i = 1; i < client_out; ++i)
+                cur = greedy.sample(m.forward(cur, true));
+            auto t2 = Clock::now();
+            return std::pair<double, double>(
+                std::chrono::duration<double, std::milli>(t1 - t0).count(),
+                (client_out - 1) / std::chrono::duration<double>(t2 - t1).count());
+        };
+        for (unsigned i = 0; i < warmup; ++i) {
+            (void)pp();
+            (void)tg();
+        }
+        std::vector<double> ppv, tgv, ttfv, outv;
+        for (unsigned r = 0; r < reps; ++r) {
+            ppv.push_back(pp());
+            tgv.push_back(tg());
+            if (run_client) {
+                auto [a, b] = client();
+                ttfv.push_back(a);
+                outv.push_back(b);
+            }
+        }
+        auto sp = stat(ppv), sg = stat(tgv), st = stat(ttfv), so = stat(outv);
+        auto name = m.gguf().get_string("general.name").value_or("GGUF model");
+        std::uint64_t params = 0, bytes = 0;
+        for (auto& t : m.gguf().tensors()) {
+            params += t.elements();
+            bytes += t.nbytes;
+        }
+        std::cout << "| model | size | params | backend | threads | test | t/s "
+                     "|\n|---|---:|---:|---|---:|---|---:|\n";
+        std::cout << "| " << name << " | " << std::fixed << std::setprecision(2)
+                  << bytes / 1048576.0 << " MiB | " << params / 1e6 << " M | MemVanta CPU | "
+                  << threads << " | pp" << prompt_n << " | " << sp.mean << " ± " << sp.sd << " |\n";
+        std::cout << "| " << name << " | " << bytes / 1048576.0 << " MiB | " << params / 1e6
+                  << " M | MemVanta CPU | " << threads << " | tg" << gen_n << " | " << sg.mean
+                  << " ± " << sg.sd << " |\n";
+        if (run_client)
+            std::cout << "TTFT(" << client_prompt << " input): " << st.mean << " ± " << st.sd
+                      << " ms; output TPS(" << client_out << "): " << so.mean << " ± " << so.sd
+                      << "\n";
+        std::cout << "load=" << load_ms << " ms peak_rss=" << rss_mib()
+                  << " MiB kv_alloc=" << m.kv_bytes_allocated() / 1048576.0
+                  << " MiB batch=" << batch_size
+                  << " kv=" << memvanta::kv_cache_type_name(m.kv_type()) << "\n";
+        if (!csv.empty()) {
+            std::ofstream f(csv);
+            f << "rep,pp_tps,tg_tps,ttft_ms,output_tps\n";
+            for (std::size_t i = 0; i < ppv.size(); ++i) {
+                f << i + 1 << "," << ppv[i] << "," << tgv[i] << ",";
+                if (run_client)
+                    f << ttfv[i] << "," << outv[i];
+                else
+                    f << ",";
+                f << "\n";
+            }
+        }
+        return 0;
+    } catch (const std::exception& e) {
+        std::cerr << "error: " << e.what() << "\n";
+        return 2;
+    }
+}

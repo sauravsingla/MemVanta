@@ -12,34 +12,35 @@ AdaptivePrefetchController::AdaptivePrefetchController(AdaptivePrefetchPolicyCon
     config_.low_useful_ratio = std::clamp(config_.low_useful_ratio, 0.0, 1.0);
     config_.high_useful_ratio =
         std::clamp(config_.high_useful_ratio, config_.low_useful_ratio, 1.0);
-    if (config_.min_depth == 0) config_.min_depth = 1;
-    if (config_.max_depth < config_.min_depth) config_.max_depth = config_.min_depth;
+    if (config_.min_depth == 0)
+        config_.min_depth = 1;
+    if (config_.max_depth < config_.min_depth)
+        config_.max_depth = config_.min_depth;
     depth_ = std::clamp(initial_depth, config_.min_depth, config_.max_depth);
     probe_from_depth_ = depth_;
 }
 
 AdaptivePrefetchDecision AdaptivePrefetchController::observe(const AdaptivePrefetchWindow& window) {
     if (!std::isfinite(window.average_item_ms) || window.average_item_ms < 0.0) {
-        throw std::runtime_error("adaptive prefetch window latency must be finite and non-negative");
+        throw std::runtime_error(
+            "adaptive prefetch window latency must be finite and non-negative");
     }
 
     const bool have_usefulness = window.consumed >= 2;
     const double useful_ratio =
         window.consumed ? double(window.useful) / double(window.consumed) : 1.0;
-    const bool low_usefulness =
-        have_usefulness && useful_ratio < config_.low_useful_ratio;
-    const bool high_usefulness =
-        have_usefulness && useful_ratio >= config_.high_useful_ratio;
+    const bool low_usefulness = have_usefulness && useful_ratio < config_.low_useful_ratio;
+    const bool high_usefulness = have_usefulness && useful_ratio >= config_.high_useful_ratio;
     const bool needs_more_lookahead = window.late > 0;
 
     // Sequential streaming naturally evicts old cache entries. Only treat
     // turnover as pressure when the look-ahead itself is not proving useful.
     const bool eviction_pressure =
         window.evictions > previous_evictions_ && have_usefulness && !high_usefulness;
-    const bool slower = std::isfinite(previous_window_ms_) &&
-                        window.average_item_ms > previous_window_ms_ * 1.05;
-    const bool stable = std::isfinite(previous_window_ms_) &&
-                        window.average_item_ms <= previous_window_ms_ * 1.01;
+    const bool slower =
+        std::isfinite(previous_window_ms_) && window.average_item_ms > previous_window_ms_ * 1.05;
+    const bool stable =
+        std::isfinite(previous_window_ms_) && window.average_item_ms <= previous_window_ms_ * 1.01;
     const bool hard_pressure = eviction_pressure || window.budget_skips || low_usefulness;
 
     PrefetchAdjustment adjustment = PrefetchAdjustment::None;
@@ -78,7 +79,8 @@ AdaptivePrefetchDecision AdaptivePrefetchController::observe(const AdaptivePrefe
         cooldown_windows_ = 2;
     } else {
         previous_window_ms_ = window.average_item_ms;
-        if (cooldown_windows_) --cooldown_windows_;
+        if (cooldown_windows_)
+            --cooldown_windows_;
         if (stable && high_usefulness && needs_more_lookahead) {
             ++stable_windows_;
         } else {
@@ -106,13 +108,11 @@ AdaptivePrefetchDecision AdaptivePrefetchController::observe(const AdaptivePrefe
         const bool byte_headroom =
             window.inflight_limit == unlimited ||
             (window.inflight_limit > 0 &&
-             window.peak_inflight_bytes <
-                 window.inflight_limit - (window.inflight_limit / 4));
+             window.peak_inflight_bytes < window.inflight_limit - (window.inflight_limit / 4));
         const bool rejected_transition =
             rejected_probe_blocked_ && depth_ == rejected_probe_from_depth_;
-        if (stable_windows_ >= 2 && !cooldown_windows_ && high_usefulness &&
-            needs_more_lookahead && byte_headroom && !rejected_transition &&
-            depth_ < config_.max_depth) {
+        if (stable_windows_ >= 2 && !cooldown_windows_ && high_usefulness && needs_more_lookahead &&
+            byte_headroom && !rejected_transition && depth_ < config_.max_depth) {
             probe_reference_ms_ = window.average_item_ms;
             probe_from_depth_ = depth_;
             ++depth_;
