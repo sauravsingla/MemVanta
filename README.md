@@ -4,7 +4,7 @@
 
 MemVanta is a memory-first local LLM runtime for running quantized Llama-family GGUF models on CPUs with limited RAM. It uses mmap-backed model access, paged KV cache, Q4/Q8 kernels, and bounded adaptive prefetching, with reproducible memory and throughput benchmarks against pinned `llama.cpp`.
 
-[Website](https://sauravsingla.github.io/MemVanta/) · [Getting started](https://sauravsingla.github.io/MemVanta/getting-started/) · [Latest release](https://github.com/sauravsingla/MemVanta/releases/tag/v0.8.2) · [7B benchmark](https://sauravsingla.github.io/MemVanta/benchmark/) · [DOI](https://doi.org/10.5281/zenodo.22886357) · [Reproduce](https://sauravsingla.github.io/MemVanta/reproduce/) · [Contributing](CONTRIBUTING.md) · [Discussions](https://github.com/sauravsingla/MemVanta/discussions)
+[Website](https://sauravsingla.github.io/MemVanta/) · [Getting started](https://sauravsingla.github.io/MemVanta/getting-started/) · [Latest release](https://github.com/sauravsingla/MemVanta/releases/tag/v0.8.3) · [PyPI](https://pypi.org/project/memvanta/) · [7B benchmark](https://sauravsingla.github.io/MemVanta/benchmark/) · [DOI](https://doi.org/10.5281/zenodo.22886357) · [Reproduce](https://sauravsingla.github.io/MemVanta/reproduce/) · [Contributing](CONTRIBUTING.md) · [Discussions](https://github.com/sauravsingla/MemVanta/discussions)
 
 ## Why MemVanta?
 
@@ -33,16 +33,36 @@ A separate cgroup-v2 experiment also measured execution under tight memory limit
 
 [Benchmark details](https://sauravsingla.github.io/MemVanta/benchmark/) · [Raw evidence](results/openllama-7b-v2-ab/) · [Methodology](docs/MEMORY_BENCHMARKING.md)
 
-## Download prebuilt release (Linux x86-64)
+## Install from PyPI (Linux x86-64)
 
-The `v0.8.2` pre-release includes a portable Linux x86-64 build (`MEMVANTA_NATIVE=OFF`) plus a SHA-256 checksum. Download, verify, and extract it with:
+MemVanta is also distributed on PyPI as a native Linux x86-64 CLI package. The initial PyPI package is a distribution shim for the C++ runtime; it is **not a separate Python inference implementation or Python API**.
 
 ```bash
-curl -fLO https://github.com/sauravsingla/MemVanta/releases/download/v0.8.2/memvanta-v0.8.2-linux-x86_64.tar.gz
-curl -fLO https://github.com/sauravsingla/MemVanta/releases/download/v0.8.2/memvanta-v0.8.2-linux-x86_64.sha256
-sha256sum -c memvanta-v0.8.2-linux-x86_64.sha256
-tar -xzf memvanta-v0.8.2-linux-x86_64.tar.gz
-cd memvanta-v0.8.2-linux-x86_64
+python -m pip install memvanta
+memvanta-real --help
+```
+
+The package exposes these console commands:
+
+```text
+memvanta
+memvanta-real
+memvanta-tokenize
+memvanta-gguf-inspect
+```
+
+PyPI releases are built as manylinux wheels with `MEMVANTA_NATIVE=OFF`, installed and smoke-tested before publication, and published from GitHub Actions through PyPI Trusted Publishing rather than a long-lived API token.
+
+## Download prebuilt release (Linux x86-64)
+
+The `v0.8.3` pre-release includes a portable Linux x86-64 build (`MEMVANTA_NATIVE=OFF`) plus a SHA-256 checksum. Download, verify, and extract it with:
+
+```bash
+curl -fLO https://github.com/sauravsingla/MemVanta/releases/download/v0.8.3/memvanta-v0.8.3-linux-x86_64.tar.gz
+curl -fLO https://github.com/sauravsingla/MemVanta/releases/download/v0.8.3/memvanta-v0.8.3-linux-x86_64.sha256
+sha256sum -c memvanta-v0.8.3-linux-x86_64.sha256
+tar -xzf memvanta-v0.8.3-linux-x86_64.tar.gz
+cd memvanta-v0.8.3-linux-x86_64
 ./bin/memvanta_real --help
 ```
 
@@ -58,7 +78,7 @@ Then run trained-model text generation with a supported Llama-family GGUF model 
   --temperature 0
 ```
 
-[Download MemVanta v0.8.2](https://github.com/sauravsingla/MemVanta/releases/tag/v0.8.2)
+[Download MemVanta v0.8.3](https://github.com/sauravsingla/MemVanta/releases/tag/v0.8.3)
 
 ## Build from source and run a GGUF model
 
@@ -144,7 +164,8 @@ The first stable release is intentionally evidence-gated rather than date-gated;
 
 - [Project website](https://sauravsingla.github.io/MemVanta/)
 - [Getting started](https://sauravsingla.github.io/MemVanta/getting-started/)
-- [Latest release: v0.8.2](https://github.com/sauravsingla/MemVanta/releases/tag/v0.8.2)
+- [Latest release: v0.8.3](https://github.com/sauravsingla/MemVanta/releases/tag/v0.8.3)
+- [PyPI package](https://pypi.org/project/memvanta/)
 - [7B benchmark](https://sauravsingla.github.io/MemVanta/benchmark/)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Results](results/)
