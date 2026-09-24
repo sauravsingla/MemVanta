@@ -8,14 +8,16 @@
 int main(int argc, char** argv) {
     try {
         if (argc < 2 || argc > 4) {
-            std::cerr << "usage: memvanta_gguf_inspect <model.gguf> [--expect-arch <architecture>]\n";
+            std::cerr
+                << "usage: memvanta_gguf_inspect <model.gguf> [--expect-arch <architecture>]\n";
             return 2;
         }
 
         std::string expected;
         if (argc > 2) {
             if (argc != 4 || std::string(argv[2]) != "--expect-arch") {
-                std::cerr << "usage: memvanta_gguf_inspect <model.gguf> [--expect-arch <architecture>]\n";
+                std::cerr
+                    << "usage: memvanta_gguf_inspect <model.gguf> [--expect-arch <architecture>]\n";
                 return 2;
             }
             expected = argv[3];
@@ -23,7 +25,8 @@ int main(int argc, char** argv) {
 
         memvanta::GgufFile file(argv[1]);
         const auto architecture = file.get_string("general.architecture").value_or("");
-        if (architecture.empty()) throw std::runtime_error("GGUF is missing general.architecture");
+        if (architecture.empty())
+            throw std::runtime_error("GGUF is missing general.architecture");
         if (!expected.empty() && architecture != expected) {
             throw std::runtime_error("unexpected GGUF architecture: expected " + expected +
                                      ", got " + architecture);

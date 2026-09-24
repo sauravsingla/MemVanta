@@ -1,10 +1,81 @@
 #include "memvanta/common.hpp"
 #include "memvanta/runtime.hpp"
+
 #include <iostream>
 #include <stdexcept>
 // parse_size now lives in src/common.cpp so memvanta_core carries it and the test
 // suite can link against it in any build configuration.
-static void usage(){ std::cout<<"memvanta run <file> [--chunk 64M] [--cache 512M] [--passes 1] [--prefetch 2] [--adaptive-prefetch] [--prefetch-min 1] [--prefetch-max 4] [--prefetch-window 8] [--zero-copy]\n"; }
-int main(int argc,char**argv){ try{ if(argc<3||std::string(argv[1])!="run"){usage();return 1;} std::string file=argv[2]; std::uint64_t chunk=64ull<<20,cache=512ull<<20; std::uint32_t passes=1,pf=2,pf_min=1,pf_max=4,pf_window=8; bool copy=true,adaptive=false; for(int i=3;i<argc;++i){ std::string a=argv[i]; auto val=[&](){if(i+1>=argc)throw std::runtime_error("missing value for "+a);return std::string(argv[++i]);}; if(a=="--chunk")chunk=memvanta::parse_size(val()); else if(a=="--cache")cache=memvanta::parse_size(val()); else if(a=="--passes")passes=std::stoul(val()); else if(a=="--prefetch")pf=std::stoul(val()); else if(a=="--adaptive-prefetch")adaptive=true; else if(a=="--prefetch-min")pf_min=std::stoul(val()); else if(a=="--prefetch-max")pf_max=std::stoul(val()); else if(a=="--prefetch-window")pf_window=std::stoul(val()); else if(a=="--zero-copy")copy=false; else throw std::runtime_error("unknown arg: "+a); }
- memvanta::TensorStore store(file,chunk); memvanta::RunConfig cfg{cache,passes,pf,copy}; cfg.adaptive_prefetch=adaptive; cfg.adaptive_min_depth=pf_min; cfg.adaptive_max_depth=pf_max; cfg.adaptive_window=pf_window; memvanta::Runtime rt(store,cfg); auto st=rt.run_stream(); std::cout<<"MemVanta CPU 0.2\nModel/file: "<<memvanta::gib(store.file_size())<<" GiB\nChunks: "<<store.count()<<" x up to "<<memvanta::mib(store.chunk_bytes())<<" MiB\nMode: "<<(copy?"bounded LRU cache":"zero-copy mmap")<<"\nAdaptive prefetch: "<<(adaptive?"on":"off")<<"\nElapsed: "<<st.seconds<<" s\nEffective stream: "<<st.gib_per_s<<" GiB/s\nPeak RSS: "<<st.peak_rss_kb/1024.0<<" MiB\nCache hits: "<<st.cache.hits<<" misses: "<<st.cache.misses<<" evictions: "<<st.cache.evictions<<"\nCopied: "<<memvanta::gib(st.cache.bytes_copied)<<" GiB\nPrefetch requests: "<<st.prefetch.requests<<" useful: "<<st.prefetch.useful<<" unused: "<<st.prefetch.unused<<"\nPrefetch depth: final="<<st.prefetch.final_depth<<" min="<<st.prefetch.min_depth_seen<<" max="<<st.prefetch.max_depth_seen<<" up="<<st.prefetch.adjustments_up<<" down="<<st.prefetch.adjustments_down<<"\nHot-set budget: "<<memvanta::mib(st.prefetch.hot_set_budget_bytes)<<" MiB\nChecksum: "<<st.checksum<<"\n"; }
- catch(const std::exception&e){std::cerr<<"error: "<<e.what()<<"\n";return 2;} }
+static void usage() {
+    std::cout << "memvanta run <file> [--chunk 64M] [--cache 512M] [--passes 1] [--prefetch 2] "
+                 "[--adaptive-prefetch] [--prefetch-min 1] [--prefetch-max 4] [--prefetch-window "
+                 "8] [--zero-copy]\n";
+}
+int main(int argc, char** argv) {
+    try {
+        if (argc < 3 || std::string(argv[1]) != "run") {
+            usage();
+            return 1;
+        }
+        std::string file = argv[2];
+        std::uint64_t chunk = 64ull << 20, cache = 512ull << 20;
+        std::uint32_t passes = 1, pf = 2, pf_min = 1, pf_max = 4, pf_window = 8;
+        bool copy = true, adaptive = false;
+        for (int i = 3; i < argc; ++i) {
+            std::string a = argv[i];
+            auto val = [&]() {
+                if (i + 1 >= argc)
+                    throw std::runtime_error("missing value for " + a);
+                return std::string(argv[++i]);
+            };
+            if (a == "--chunk")
+                chunk = memvanta::parse_size(val());
+            else if (a == "--cache")
+                cache = memvanta::parse_size(val());
+            else if (a == "--passes")
+                passes = std::stoul(val());
+            else if (a == "--prefetch")
+                pf = std::stoul(val());
+            else if (a == "--adaptive-prefetch")
+                adaptive = true;
+            else if (a == "--prefetch-min")
+                pf_min = std::stoul(val());
+            else if (a == "--prefetch-max")
+                pf_max = std::stoul(val());
+            else if (a == "--prefetch-window")
+                pf_window = std::stoul(val());
+            else if (a == "--zero-copy")
+                copy = false;
+            else
+                throw std::runtime_error("unknown arg: " + a);
+        }
+        memvanta::TensorStore store(file, chunk);
+        memvanta::RunConfig cfg{cache, passes, pf, copy};
+        cfg.adaptive_prefetch = adaptive;
+        cfg.adaptive_min_depth = pf_min;
+        cfg.adaptive_max_depth = pf_max;
+        cfg.adaptive_window = pf_window;
+        memvanta::Runtime rt(store, cfg);
+        auto st = rt.run_stream();
+        std::cout << "MemVanta CPU 0.2\nModel/file: " << memvanta::gib(store.file_size())
+                  << " GiB\nChunks: " << store.count() << " x up to "
+                  << memvanta::mib(store.chunk_bytes())
+                  << " MiB\nMode: " << (copy ? "bounded LRU cache" : "zero-copy mmap")
+                  << "\nAdaptive prefetch: " << (adaptive ? "on" : "off")
+                  << "\nElapsed: " << st.seconds << " s\nEffective stream: " << st.gib_per_s
+                  << " GiB/s\nPeak RSS: " << st.peak_rss_kb / 1024.0
+                  << " MiB\nCache hits: " << st.cache.hits << " misses: " << st.cache.misses
+                  << " evictions: " << st.cache.evictions
+                  << "\nCopied: " << memvanta::gib(st.cache.bytes_copied)
+                  << " GiB\nPrefetch requests: " << st.prefetch.requests
+                  << " useful: " << st.prefetch.useful << " unused: " << st.prefetch.unused
+                  << "\nPrefetch depth: final=" << st.prefetch.final_depth
+                  << " min=" << st.prefetch.min_depth_seen << " max=" << st.prefetch.max_depth_seen
+                  << " up=" << st.prefetch.adjustments_up
+                  << " down=" << st.prefetch.adjustments_down
+                  << "\nHot-set budget: " << memvanta::mib(st.prefetch.hot_set_budget_bytes)
+                  << " MiB\nChecksum: " << st.checksum << "\n";
+    } catch (const std::exception& e) {
+        std::cerr << "error: " << e.what() << "\n";
+        return 2;
+    }
+}

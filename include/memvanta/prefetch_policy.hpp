@@ -31,13 +31,13 @@ struct AdaptivePrefetchDecision {
 };
 
 class AdaptivePrefetchController {
-public:
+  public:
     AdaptivePrefetchController(AdaptivePrefetchPolicyConfig config, std::uint32_t initial_depth);
 
     AdaptivePrefetchDecision observe(const AdaptivePrefetchWindow& window);
     std::uint32_t depth() const { return depth_; }
 
-private:
+  private:
     AdaptivePrefetchPolicyConfig config_;
     std::uint32_t depth_{};
     std::uint32_t stable_windows_{};

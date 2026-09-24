@@ -25,7 +25,7 @@ struct Llama2BenchResult {
 };
 
 class Llama2Model {
-public:
+  public:
     Llama2Model(const std::string& path, unsigned threads = 1);
     ~Llama2Model();
     Llama2Model(const Llama2Model&) = delete;
@@ -43,11 +43,10 @@ public:
 
     // llama-bench-like end-to-end metrics using token IDs so tokenizer cost is excluded,
     // just as llama-bench focuses on model evaluation throughput.
-    Llama2BenchResult benchmark(std::size_t prompt_tokens,
-                                std::size_t generated_tokens,
-                                unsigned warmup = 1) ;
+    Llama2BenchResult
+    benchmark(std::size_t prompt_tokens, std::size_t generated_tokens, unsigned warmup = 1);
 
-private:
+  private:
     struct Weights;
     struct State;
     int fd_ = -1;

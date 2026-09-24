@@ -19,13 +19,19 @@
 
 namespace memvanta_test {
 
-inline int& failure_count() { static int n = 0; return n; }
-inline int failures() { return failure_count() ? 1 : 0; }
+inline int& failure_count() {
+    static int n = 0;
+    return n;
+}
+inline int failures() {
+    return failure_count() ? 1 : 0;
+}
 
 inline void record(const char* expr, const char* file, int line, const char* note) {
     ++failure_count();
     std::fprintf(stderr, "CHECK failed: %s\n  at %s:%d", expr, file, line);
-    if (note && *note) std::fprintf(stderr, "\n  %s", note);
+    if (note && *note)
+        std::fprintf(stderr, "\n  %s", note);
     std::fputc('\n', stderr);
 }
 
@@ -33,18 +39,24 @@ inline void record(const char* expr, const char* file, int line, const char* not
 
 // CHECK and CHECK_MSG contain no return statement, so they are usable inside void
 // helper functions as well as in main().
-#define CHECK(cond)                                                              \
-    do { if (!(cond)) memvanta_test::record(#cond, __FILE__, __LINE__, ""); } while (0)
+#define CHECK(cond)                                                                                \
+    do {                                                                                           \
+        if (!(cond))                                                                               \
+            memvanta_test::record(#cond, __FILE__, __LINE__, "");                                  \
+    } while (0)
 
-#define CHECK_MSG(cond, note)                                                    \
-    do { if (!(cond)) memvanta_test::record(#cond, __FILE__, __LINE__, note); } while (0)
+#define CHECK_MSG(cond, note)                                                                      \
+    do {                                                                                           \
+        if (!(cond))                                                                               \
+            memvanta_test::record(#cond, __FILE__, __LINE__, note);                                \
+    } while (0)
 
 // Only for cases where continuing after the failure would be unsafe; returns from
 // the enclosing function, so it must be used where returning 1 is valid.
-#define CHECK_FATAL(cond)                                                        \
-    do {                                                                         \
-        if (!(cond)) {                                                           \
-            memvanta_test::record(#cond, __FILE__, __LINE__, "");                \
-            return 1;                                                            \
-        }                                                                        \
+#define CHECK_FATAL(cond)                                                                          \
+    do {                                                                                           \
+        if (!(cond)) {                                                                             \
+            memvanta_test::record(#cond, __FILE__, __LINE__, "");                                  \
+            return 1;                                                                              \
+        }                                                                                          \
     } while (0)

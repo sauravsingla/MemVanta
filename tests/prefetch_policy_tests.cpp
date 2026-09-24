@@ -11,9 +11,8 @@ using memvanta::PrefetchAdjustment;
 
 namespace {
 
-AdaptivePrefetchWindow good_window(double ms,
-                                   std::uint64_t evictions = 0,
-                                   bool has_late_request = true) {
+AdaptivePrefetchWindow
+good_window(double ms, std::uint64_t evictions = 0, bool has_late_request = true) {
     AdaptivePrefetchWindow w;
     w.average_item_ms = ms;
     if (has_late_request) {
