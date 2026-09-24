@@ -20,8 +20,8 @@ The project is intentionally transparent about the cost of that trade-off. MemVa
 | Metric | MemVanta | pinned `llama.cpp` |
 |---|---:|---:|
 | OpenLLaMA 7B v2 Q4_0 peak RSS | **3.80 GiB** | 7.24 GiB |
-| Prompt processing | 2.78 ± 0.00 tok/s | **12.86 ± 0.01 tok/s** |
-| Token generation | 1.81 ± 0.00 tok/s | **8.14 ± 0.01 tok/s** |
+| Prompt processing | 3.73 ± 0.00 tok/s | **21.56 ± 0.02 tok/s** |
+| Token generation | 2.30 ± 0.00 tok/s | **9.07 ± 0.07 tok/s** |
 | Peak-RSS reduction | **47.54%** | baseline |
 
 Source of truth: [`results/openllama-7b-v2-ab/summary.json`](results/openllama-7b-v2-ab/summary.json). The README table is generated from that file; do not edit its numbers by hand.
