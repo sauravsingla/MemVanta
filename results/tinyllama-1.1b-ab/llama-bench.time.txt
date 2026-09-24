@@ -1,18 +1,18 @@
 	Command being timed: "./llama.cpp/build/bin/llama-bench -m TinyLlama-1.1B-Chat-v1.0.Q4_0.gguf -p 512 -n 128 -t 4 -r 5 -b 32 -ub 32 -ctk f16 -ctv f16 -ngl 0 -o json"
-	User time (seconds): 207.87
-	System time (seconds): 0.26
+	User time (seconds): 82.55
+	System time (seconds): 0.19
 	Percent of CPU this job got: 396%
-	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:52.45
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:20.88
 	Average shared text size (kbytes): 0
 	Average unshared data size (kbytes): 0
 	Average stack size (kbytes): 0
 	Average total size (kbytes): 0
-	Maximum resident set size (kbytes): 1194420
+	Maximum resident set size (kbytes): 1190528
 	Average resident set size (kbytes): 0
 	Major (requiring I/O) page faults: 0
-	Minor (reclaiming a frame) page faults: 14895
-	Voluntary context switches: 21
-	Involuntary context switches: 30201
+	Minor (reclaiming a frame) page faults: 14527
+	Voluntary context switches: 18
+	Involuntary context switches: 13559
 	Swaps: 0
 	File system inputs: 0
 	File system outputs: 8
