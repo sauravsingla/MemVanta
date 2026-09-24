@@ -6,13 +6,13 @@ Hosted-runner regression tolerance: 2.0% for FFN and end-to-end time; pull reque
 
 | Metric | Baseline mean ± SD | Candidate mean ± SD | Improvement |
 |---|---:|---:|---:|
-| FFN GEMM ms | 32891.61 ± 828.82 | 33270.17 ± 774.12 | -1.15% |
-| Prefill ms | 44000.40 ± 1025.45 | 45224.03 ± 1171.18 | -2.78% |
-| Decode ms | 8813.46 ± 10.11 | 8812.26 ± 26.11 | 0.01% |
-| QKV ms | 11548.82 ± 238.67 | 12244.32 ± 394.45 | -6.02% |
+| FFN GEMM ms | 30149.41 ± 415.45 | 30324.20 ± 98.86 | -0.58% |
+| Prefill ms | 41268.93 ± 443.07 | 41427.67 ± 119.58 | -0.38% |
+| Decode ms | 9424.99 ± 19.45 | 9456.84 ± 46.90 | -0.34% |
+| QKV ms | 11580.06 ± 6.17 | 11593.35 ± 20.45 | -0.11% |
 
-- Total improvement: -2.31%
-- FFN improvement: -1.15%
-- RSS growth: -0.00%
-- Gate: **FAIL**
+- Total improvement: -0.38%
+- FFN improvement: -0.58%
+- RSS growth: 0.00%
+- Gate: **PASS**
 - Gate enforcement: **evidence-only on main push**
