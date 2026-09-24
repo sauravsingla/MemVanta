@@ -2,7 +2,7 @@ cff-version: 1.2.0
 title: MemVanta
 message: "If you use MemVanta or its benchmark methodology/results in research, please cite this repository."
 type: software
-version: 0.8.1
+version: 0.8.2
 doi: "10.5281/zenodo.22886357"
 authors:
   - family-names: Singla
@@ -19,4 +19,4 @@ keywords:
   - quantization
   - edge AI
   - benchmarking
-date-released: 2026-09-22
+date-released: 2026-09-24
