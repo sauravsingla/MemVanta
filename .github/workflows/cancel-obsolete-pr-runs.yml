@@ -23,7 +23,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Cancel queued or running jobs from older commits on this PR branch
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const owner = context.repo.owner;
