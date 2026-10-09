@@ -67,3 +67,20 @@ Independent benchmark reproductions — including results that narrow or contrad
 ## Coding style
 
 MemVanta targets modern C++20. Prefer clear ownership, bounded memory use, explicit error handling, and deterministic tests. Avoid unnecessary dependencies in the core runtime.
+
+
+## Local smoke test
+
+From the repository root, run:
+
+./scripts/smoke_local.sh
+
+Prerequisites:
+- CMake and a C++20 compiler
+- Python 3
+- A working build environment
+
+The script creates a disposable `build-smoke/` directory, builds the Release targets, runs the CTest suite, generates a tiny GGUF fixture, and inspects it. No external model download is required.
+
+The generated fixture is:
+build-smoke/smoke_tiny.gguf
