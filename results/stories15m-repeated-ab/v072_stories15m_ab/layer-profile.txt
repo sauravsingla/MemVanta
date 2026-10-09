@@ -1,15 +1,15 @@
 # MemVanta trained-model layer profile
-prefill_ms=17.2908 decode_total_ms=9.47756 sampling_ms=0.191578
-prefill_cycles_per_token=1321947.25 decode_cycles_per_token=2897069.88
-qkv_projection_ms=4.30 attention_output_projection_ms=1.50 ffn_gemm_ms=9.23 output_head_ms=5.74
-prefill_qkv_projection_ms=3.30 prefill_attention_output_projection_ms=1.13 prefill_ffn_gemm_ms=7.13 prefill_output_head_ms=1.32 prefill_kernel_ms=12.88
-decode_qkv_projection_ms=1.00 decode_attention_output_projection_ms=0.37 decode_ffn_gemm_ms=2.11 decode_output_head_ms=4.43 decode_kernel_ms=7.91
-non_gemm_core_ms=5.79 (attention softmax/KV + RMSNorm + RoPE + elementwise/residual)
+prefill_ms=13.3728 decode_total_ms=5.53176 sampling_ms=0.153269
+prefill_cycles_per_token=1085415.81 decode_cycles_per_token=1795121.25
+qkv_projection_ms=2.82 attention_output_projection_ms=0.94 ffn_gemm_ms=6.94 output_head_ms=3.78
+prefill_qkv_projection_ms=2.28 prefill_attention_output_projection_ms=0.74 prefill_ffn_gemm_ms=5.76 prefill_output_head_ms=1.07 prefill_kernel_ms=9.85
+decode_qkv_projection_ms=0.54 decode_attention_output_projection_ms=0.20 decode_ffn_gemm_ms=1.18 decode_output_head_ms=2.71 decode_kernel_ms=4.63
+non_gemm_core_ms=4.27 (attention softmax/KV + RMSNorm + RoPE + elementwise/residual)
 layer,qkv_ms,o_proj_ms,ffn_ms,total_projection_ms,pct_kernel_ms,projection_ms_per_token
-0,0.85,0.27,1.53,2.66,12.78,0.07
-1,0.71,0.24,1.55,2.50,12.03,0.06
-2,0.65,0.24,1.52,2.41,11.59,0.06
-3,0.70,0.28,1.53,2.51,12.06,0.06
-4,0.70,0.23,1.53,2.46,11.84,0.06
-5,0.70,0.24,1.57,2.51,12.06,0.06
+0,0.56,0.16,0.97,1.69,11.70,0.04
+1,0.44,0.16,0.99,1.59,10.97,0.04
+2,0.46,0.15,1.21,1.82,12.58,0.05
+3,0.46,0.15,1.76,2.37,16.35,0.06
+4,0.46,0.16,1.01,1.62,11.22,0.04
+5,0.45,0.16,1.00,1.61,11.10,0.04
 profile_csv=v072_stories15m_ab/layer-profile.csv
