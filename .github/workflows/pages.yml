@@ -46,7 +46,7 @@ jobs:
         run: python3 .github/scripts/check_social_preview.py _site
 
       - name: Configure GitHub Pages
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@v6
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v4
